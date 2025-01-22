@@ -13,6 +13,14 @@ function App() {
           <ul className="nav-links">
             <li><Link to="/">Home</Link></li>
             <li><Link to="/fsae-simulator">FSAE Simulator</Link></li>
+            <li><Link to="/fsae-simulator">Aero</Link></li>
+            <li><Link to="/fsae-simulator">Brakes/Pedals</Link></li>
+            <li><Link to="/fsae-simulator">Composites</Link></li>
+            <li><Link to="/fsae-simulator">Ergo</Link></li>
+            <li><Link to="/fsae-simulator">GLV</Link></li>
+            <li><Link to="/fsae-simulator">Suspension</Link></li>
+            <li><Link to="/fsae-simulator">Tractive</Link></li>
+            <li><Link to="/fsae-simulator">Wheels/Tires</Link></li>
           </ul>
         </div>
       </nav>
