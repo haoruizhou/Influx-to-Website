@@ -1,0 +1,24 @@
+/* Background Transparency Fix */
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    background-image: url('./assets/background.png'); /* Path to your image */
+    background-size: cover; /* Ensure the image covers the entire screen */
+    background-repeat: no-repeat; /* Prevents the image from repeating */
+    background-position: center; /* Centers the background */
+    background-attachment: fixed; /* Keeps the background static */
+    position: relative; /* Needed for body::before to position relative to body */
+}
+
+body::before {
+    content: ''; /* Required for pseudo-elements */
+    position: fixed; /* Keeps the overlay fixed like the background */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(14, 14, 14, 0.7); /* Black overlay with 70% transparency */
+    pointer-events: none; /* Ensures the overlay doesn't block interaction with content */
+    z-index: 0; /* Ensures it's behind the content */
+}
