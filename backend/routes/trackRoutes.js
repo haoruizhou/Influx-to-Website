@@ -1,14 +1,10 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { connectToMongo } from "./db/mongoClient.js";
-dotenv.config();
+const express = require("express");
+const { connectToMongo } = require("../db/mongoClient");
 
-const app = express();
-app.use(cors({ origin: "http://localhost:5173" })); // Replace with your frontend's URL
-app.use(express.json());
+const router = express.Router();
 
-app.post("/track/save", async (req, res) => {
+// Save track points to MongoDB
+router.post("/save", async (req, res) => {
   try {
     const db = await connectToMongo();
     const trackCollection = db.collection("tracks");
@@ -27,7 +23,8 @@ app.post("/track/save", async (req, res) => {
   }
 });
 
-app.get("/track/load/:name", async (req, res) => {
+// Load track points from MongoDB
+router.get("/load/:name", async (req, res) => {
   try {
     const db = await connectToMongo();
     const trackCollection = db.collection("tracks");
@@ -44,7 +41,4 @@ app.get("/track/load/:name", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export default router;
