@@ -16,14 +16,9 @@ export const connectToMongo = async () => {
   try {
     await client.connect(); // Connect to MongoDB
     console.log("Connecting to MongoDB with URI:", process.env.DATABASE_URI);
-    const db = client.db(); // Return the database instance
-
-    // Test the connection by listing databases
-    const databasesList = await client.db().admin().listDatabases();
-    console.log("Databases:");
-    databasesList.databases.forEach(db => console.log(` - ${db.name}`));
-
-    return db;
+    const db = client.db('WFR'); // Ensure the database name is correctly specified
+    console.log(`Using database: ${db.databaseName}`);
+    return db; // Return the database instance
   } catch (error) {
     console.error("Error connecting to MongoDB:", error.message);
     throw error;
