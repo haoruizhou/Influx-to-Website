@@ -10,7 +10,7 @@ npm install @influxdata/influxdb-client
 
 1. clone https://github.com/Western-Formula-Racing/car_to_influx
 2. The relevant python script here is **readCAN2.py**
-3. 
+3. Make sure to set the correct TOKEN in the script
 
 
 
@@ -35,7 +35,7 @@ Log in using:
 Then: 
 
 1. Find API Key
-2. Create organization called WFR
+2. Create an organization called WFR
    1. click your profile icon, then click Create Organization
 3. Create a new bucket in Influx: call it "ourCar" <- you can change this in the python script, just make sure it matches.
    1. Consider changing the data retention policy to 1 hour to keep it clean for every testing session
@@ -128,3 +128,6 @@ Output:
 ]
 ```
 
+
+Future Development: 
+On the live monitor dashboard, the x-axis of the plot should be -60s to 0s (current), instead of absolute time. 
