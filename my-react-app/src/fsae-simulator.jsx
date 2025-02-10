@@ -4,8 +4,66 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Play, Pause, RotateCcw, Edit, Check } from 'lucide-react';
 
 
+
 const FSAESimulator = () => {
-  
+  // InfluxDB setup
+  const influxConfig = {
+    url: 'http://localhost:8086',
+    token: 'API_TOKEN',
+    org: 'WFR',
+    bucket: 'canBus'
+  }
+
+  // Query functions
+  async function fetchSpeedData() {
+    const query = `
+    from(bucket: "${influxConfig.bucket}")
+      |> range(start: -1m)
+      |> filter(fn: (r) => r._measurement == "canBus")
+      |> filter(fn: (r) => r.signalName == "VehicleSpeed")
+      |> aggregateWindow(every: 1s, fn: mean)
+    `
+    return executeQuery(query)
+  }
+
+  function createSensorQuery(sensorName) {
+    return `
+    from(bucket: "${influxConfig.bucket}")
+      |> range(start: -1m)
+      |> filter(fn: (r) => r._measurement == "canBus")
+      |> filter(fn: (r) => r.signalName == "${sensorName}")
+      |> aggregateWindow(every: 1s, fn: mean)
+    `
+  }
+
+  async function fetchSensorData(sensorName) {
+    const query = createSensorQuery(sensorName)
+    return executeQuery(query)
+  }
+
+  // Move the rest of your component code here...
+  const [realTimeData, setRealTimeData] = useState([])
+  // ... rest of your states and logic
+
+  // Use the sensor data in useEffect
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const speedData = await fetchSensorData('VehicleSpeed')
+        const batteryTemp = await fetchSensorData('BatteryTemp')
+        const motorTemp = await fetchSensorData('MotorTemp')
+        // Process the data...
+      } catch (error) {
+        console.error('Error fetching sensor data:', error)
+      }
+    }
+
+    fetchData()
+    const interval = setInterval(fetchData, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+
   const [isPlaying, setIsPlaying] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [data, setData] = useState([]);
@@ -371,19 +429,23 @@ const FSAESimulator = () => {
                 <CardTitle>Speed (km/h)</CardTitle>
               </CardHeader>
               <CardContent>
-                <LineChart width={400} height={200} data={data}>
+                // using real data
+                <LineChart width={400} height={200} data={realTimeData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
-                    dataKey="time"
-                    label={{ value: "Time (s)", position: "bottom" }}
+                      dataKey="time"
+                      tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
                   />
                   <YAxis domain={[0, 100]} />
-                  <Tooltip />
+                  <Tooltip
+                      labelFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+                  />
                   <Line
-                    type="monotone"
-                    dataKey="speed"
-                    stroke="#e11d48"
-                    dot={false}
+                      type="monotone"
+                      dataKey="speed"
+                      stroke="#e11d48"
+                      dot={false}
+                      isAnimationActive={false}
                   />
                 </LineChart>
               </CardContent>
