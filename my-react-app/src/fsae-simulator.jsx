@@ -6,6 +6,23 @@ import { Play, Pause, RotateCcw, Edit, Check } from 'lucide-react';
 
 
 const FSAESimulator = () => {
+
+  // random car color generator
+  const [carColor] = useState(() => {
+    const colors = [
+      '#e11d48', // red
+      '#2563eb', // blue
+      '#16a34a', // green
+      '#9333ea', // purple
+      '#ea580c', // orange
+      '#0d9488', // teal
+      '#ca8a04', // yellow
+      '#be185d', // pink
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  });
+
+
   // InfluxDB setup
   const influxConfig = {
     url: 'http://localhost:8086',
@@ -178,6 +195,34 @@ const FSAESimulator = () => {
     { x: 100, y: 350 },
     { x: 150, y: 300 }
   ]);
+
+
+  // really just trying to draw a W here
+    // const trackPoints = [[
+  //     // Outer path starting from top left
+  //     { x: 100, y: 100 },  // 1: Start top left outer
+  //     { x: 150, y: 200 },  // 2: First descent
+  //     { x: 200, y: 300 },  // 3: First valley outer
+  //     { x: 250, y: 200 },  // 4: First ascent
+  //     { x: 300, y: 100 },  // 5: Middle peak outer
+  //     { x: 350, y: 200 },  // 6: Second descent
+  //     { x: 400, y: 300 },  // 7: Second valley outer
+  //     { x: 450, y: 200 },  // 8: Final ascent
+  //     { x: 500, y: 100 },  // 9: Top right outer
+  //     { x: 520, y: 120 },  // 10: Slight curve out
+  //
+  //     // Inner path from right to left (with wider spacing)
+  //     { x: 500, y: 180 },  // 11: Top right inner
+  //     { x: 450, y: 260 },  // 12: Inner final descent
+  //     { x: 400, y: 340 },  // 13: Second valley inner
+  //     { x: 350, y: 260 },  // 14: Inner second ascent
+  //     { x: 300, y: 180 },  // 15: Middle peak inner
+  //     { x: 250, y: 260 },  // 16: Inner first descent
+  //     { x: 200, y: 340 },  // 17: First valley inner
+  //     { x: 150, y: 260 },  // 18: Inner first ascent
+  //     { x: 100, y: 180 },  // 19: Top left inner
+  //     { x: 100, y: 100 }   // 20: Back to start
+  // ]
 
   const animationFrame = useRef();
   const startTime = useRef(Date.now());
@@ -354,12 +399,13 @@ const FSAESimulator = () => {
 
 
   return (
-    <div className="simulator-content" style={{ marginTop: "300px" }}>
+      // changed from 300 to 700 to show the buttons
+    <div className="simulator-content" style={{ marginTop: "700px" }}>
       <div className="simulator-container flex">
         {/* Side Column */}
         <div className="w-1/4 p-4 border-r border-gray-200">
           <h2 className="text-lg font-bold">Track Editor</h2>
-               
+
 
           <p className="text-sm text-gray-600 mb-4">
             {isEditMode
@@ -379,7 +425,7 @@ const FSAESimulator = () => {
             Reset Simulation
           </button>
 
-          
+
           <button
             onClick={saveTrack}
             className="w-full p-2 bg-green-500 text-white rounded-md mt-4"
@@ -387,8 +433,8 @@ const FSAESimulator = () => {
             Save Track to MongoDB
           </button>
 
-          
-          
+
+
           <button
             onClick={loadTrack}
             className="w-full p-2 bg-purple-500 text-white rounded-md mt-4"
@@ -405,10 +451,10 @@ const FSAESimulator = () => {
                 value = {trackName}
                 onChange={(e) => setTrackName(e.target.value)}/>
             </label>
-          </div>     
+          </div>
 
-        
-  
+
+
         {/* Main Content */}
         <div className="w-3/4 max-w-6xl mx-auto p-4 space-y-4">
           <Card>
@@ -454,7 +500,7 @@ const FSAESimulator = () => {
                   strokeLinecap="round"
                   strokeDasharray="5,5"
                 />
-  
+
                 {/* Editable Points */}
                 {isEditMode &&
                   trackPoints.map((point, index) => (
@@ -480,7 +526,8 @@ const FSAESimulator = () => {
                       }}
                     />
                   ))}
-  
+
+
                 {/* FSAE Race Car */}
                 <g
                   transform={`translate(${carPosition.x},${carPosition.y}) rotate(${carPosition.angle})`}
@@ -491,7 +538,7 @@ const FSAESimulator = () => {
                     width="30"
                     height="20"
                     rx="5"
-                    fill="#e11d48"
+                    fill={carColor}
                   />
                   <circle cx="-10" cy="10" r="4" fill="#333" />
                   <circle cx="10" cy="10" r="4" fill="#333" />
@@ -505,7 +552,7 @@ const FSAESimulator = () => {
               </svg>
             </CardContent>
           </Card>
-  
+
           {/* Speed and Battery Temperature Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
@@ -594,6 +641,6 @@ const FSAESimulator = () => {
     </div>
   );
 }
-  
+
 
 export default FSAESimulator;
