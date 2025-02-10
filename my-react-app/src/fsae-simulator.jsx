@@ -9,21 +9,71 @@ const FSAESimulator = () => {
   // InfluxDB setup
   const influxConfig = {
     url: 'http://localhost:8086',
-    token: 'API_TOKEN',
+    token: 'K85UHcCTLarwhBvWzdEBzalAmg29MxWizxYSvhfEZtVADsEWVp3xDl8SDoCFkLGxHGxhhksEDdqZSOFrhhXlNQ==',
     org: 'WFR',
-    bucket: 'canBus'
+    bucket: 'ourCar'
   }
 
-  // Query functions
-  async function fetchSpeedData() {
-    const query = `
-    from(bucket: "${influxConfig.bucket}")
-      |> range(start: -1m)
-      |> filter(fn: (r) => r._measurement == "canBus")
-      |> filter(fn: (r) => r.signalName == "VehicleSpeed")
-      |> aggregateWindow(every: 1s, fn: mean)
-    `
-    return executeQuery(query)
+  // Main function for querying from Influx
+  async function executeQuery(query) {
+    try {
+      const response = await fetch(`${influxConfig.url}/api/v2/query?org=${influxConfig.org}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${influxConfig.token}`,
+          'Content-Type': 'application/vnd.flux',
+          'Accept': 'application/csv'
+        },
+        body: query
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const csvData = await response.text();
+
+      // Parse CSV response
+      return parseInfluxResponse(csvData);
+    } catch (error) {
+      console.error('Error executing query:', error);
+      throw error;
+    }
+  }
+
+// Helper function to parse InfluxDB CSV response
+  function parseInfluxResponse(csvData) {
+    // Skip empty responses
+    if (!csvData || csvData.trim() === '') {
+      return [];
+    }
+
+    // Split the CSV into lines
+    const lines = csvData.trim().split('\n');
+
+    // Need at least header and one data row
+    if (lines.length < 2) {
+      return [];
+    }
+
+    // Get headers
+    const headers = lines[0].split(',');
+
+    // Find important column indexes
+    const timeIndex = headers.findIndex(h => h === '_time');
+    const valueIndex = headers.findIndex(h => h === '_value');
+
+    // Process data rows (skip first row which is headers)
+    return lines.slice(1)
+        .filter(line => line.trim() !== '') // Skip empty lines
+        .map(line => {
+          const values = line.split(',');
+          return {
+            _time: values[timeIndex],
+            _value: parseFloat(values[valueIndex])
+          };
+        })
+        .filter(point => !isNaN(point._value)); // Remove any invalid numbers
   }
 
   function createSensorQuery(sensorName) {
@@ -41,28 +91,69 @@ const FSAESimulator = () => {
     return executeQuery(query)
   }
 
-  // Move the rest of your component code here...
-  const [realTimeData, setRealTimeData] = useState([])
-  // ... rest of your states and logic
 
-  // Use the sensor data in useEffect
+  const [realTimeData, setRealTimeData] = useState([])
+
+  // TESTING ZONE FOR INFLUX
+  // Add new state for inverter current
+  const [inverterCurrentData, setInverterCurrentData] = useState([]);
+
+  // Add new query function
+  async function fetchInverterCurrent() {
+    const query = `
+  from(bucket: "${influxConfig.bucket}")
+  |> range(start: -1m)
+  |> filter(fn: (r) => r["_measurement"] == "canBus")
+  |> filter(fn: (r) => r["_field"] == "sensorReading")
+  |> filter(fn: (r) => r["messageName"] == "M166_Current_Info")
+  |> filter(fn: (r) => r["rawCAN"] == "166")
+  |> filter(fn: (r) => r["signalName"] == "INV_Phase_A_Current")
+  |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
+  |> yield(name: "mean")
+`;
+    console.log('Query being executed:', query); // Log the query
+    try {
+      const result = await executeQuery(query);
+      console.log('Query result:', result); // Log the result
+
+      // Format the data properly for the chart
+      const formattedData = result.map(point => ({
+        time: new Date(point._time).getTime(),
+        current: point._value
+      }));
+
+      return formattedData;
+    } catch (error) {
+      console.error('Error in fetchInverterCurrent:', error);
+      return [];
+    }
+  }
+
+// Update useEffect to handle the inverter data properly
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const speedData = await fetchSensorData('VehicleSpeed')
-        const batteryTemp = await fetchSensorData('BatteryTemp')
-        const motorTemp = await fetchSensorData('MotorTemp')
-        // Process the data...
+        const speedData = await fetchSensorData('VehicleSpeed');
+        const batteryTemp = await fetchSensorData('BatteryTemp');
+        const motorTemp = await fetchSensorData('MotorTemp');
+        const currentData = await fetchInverterCurrent();
+
+        // Set the state with the formatted data
+        setInverterCurrentData(currentData);
+
       } catch (error) {
-        console.error('Error fetching sensor data:', error)
+        console.error('Error fetching sensor data:', error);
       }
-    }
+    };
 
-    fetchData()
-    const interval = setInterval(fetchData, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
+
+
+  // Track Editor Code (Ella)
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -450,7 +541,38 @@ const FSAESimulator = () => {
                 </LineChart>
               </CardContent>
             </Card>
-  
+            // NEW INVERTER CHART
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Inverter Phase A Current</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LineChart width={400} height={200} data={inverterCurrentData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                      dataKey="time"
+                      tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+                  />
+                  <YAxis
+                      label={{ value: 'Current (A)', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip
+                      labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
+                      formatter={(value) => [`${value.toFixed(2)} A`, 'Current']}
+                  />
+                  <Line
+                      type="monotone"
+                      dataKey="current"
+                      stroke="#2563eb"
+                      dot={false}
+                      isAnimationActive={false}
+                  />
+                </LineChart>
+              </CardContent>
+            </Card>
+
+
             <Card>
               <CardHeader>
                 <CardTitle>Battery Temperature (°C)</CardTitle>

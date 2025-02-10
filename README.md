@@ -34,10 +34,23 @@ Log in using:
 
 Then: 
 
-1. Click on "Data" in the left sidebar
-2. Click "API Tokens"
-3. Click on your token (there should be one created during setup)
-4. Click "Copy to Clipboard"
+1. Find API Key
+2. Create organization called WFR
+   1. click your profile icon, then click Create Organization
+3. Create a new bucket in Influx: call it "ourCar" <- you can change this in the python script, just make sure it matches.
+   1. Consider changing the data retention policy to 1 hour to keep it clean for every testing session
+
+
+
+Now, start running the Python code and use the graph viewer to view the testing data:
+
+If you want something that's constantly moving:
+
+ourCar-canBus-sensorReading-M166_Current_info-166-INV_Phase_A_Current
+
+
+
+
 
 
 
