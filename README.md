@@ -50,9 +50,81 @@ ourCar-canBus-sensorReading-M166_Current_info-166-INV_Phase_A_Current
 
 
 
+## Query Data Processing Pipeline
 
+1. **Query Execution (executeQuery function)**:
+   - Takes a Flux query as input
+   - Makes a POST request to InfluxDB's API endpoint with:
+     * URL: `${influxConfig.url}/api/v2/query?org=${influxConfig.org}`
+     * Authentication: Token-based via headers
+     * Request format: Flux query language (`application/vnd.flux`)
+     * Response format: CSV (`application/csv`)
+   - Checks for successful response (response.ok)
+   - Converts response to text (CSV format)
+   - Passes CSV to parseInfluxResponse
 
+2. **CSV Parsing (parseInfluxResponse function)**:
+   
+   Input Validation:
+   ```javascript
+   if (!csvData || csvData.trim() === '') {
+     return [];
+   }
+   ```
+   - Checks if data exists and isn't empty
+   
+   Data Structure Analysis:
+   ```javascript
+   const lines = csvData.trim().split('\n');
+   if (lines.length < 2) {
+     return [];
+   }
+   ```
+   - Splits CSV into lines
+   - Ensures there's at least a header and one data row
+   
+   Header Processing:
+   ```javascript
+   const headers = lines[0].split(',');
+   const timeIndex = headers.findIndex(h => h === '_time');
+   const valueIndex = headers.findIndex(h => h === '_value');
+   ```
+   - Extracts column headers
+   - Locates critical columns: '_time' and '_value'
+   
+   Data Transformation Pipeline:
+   ```javascript
+   return lines.slice(1)
+       .filter(line => line.trim() !== '')
+       .map(line => {
+         const values = line.split(',');
+         return {
+           _time: values[timeIndex],
+           _value: parseFloat(values[valueIndex])
+         };
+       })
+       .filter(point => !isNaN(point._value));
+   ```
+   1. `slice(1)`: Skips header row
+   2. First `filter`: Removes empty lines
+   3. `map`: Transforms each line into an object with _time and _value
+   4. Second `filter`: Removes entries with invalid numerical values
 
+The final output is an array of objects, each containing:
+- `_time`: Timestamp from InfluxDB
+- `_value`: Numerical value (sensor reading)
 
+Example transformation:
+```
+Input CSV:
+_time,_value,_field,_measurement
+2024-02-09T12:00:00Z,23.5,temperature,sensors
+2024-02-09T12:00:01Z,24.0,temperature,sensors
 
+Output:
+[
+  { _time: "2024-02-09T12:00:00Z", _value: 23.5 },
+  { _time: "2024-02-09T12:00:01Z", _value: 24.0 }
+]
+```
 

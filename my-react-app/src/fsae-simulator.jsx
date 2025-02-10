@@ -76,6 +76,10 @@ const FSAESimulator = () => {
         .filter(point => !isNaN(point._value)); // Remove any invalid numbers
   }
 
+
+  // TESTING ZONE FOR INFLUX
+  // Modify below to add other sensors
+
   function createSensorQuery(sensorName) {
     return `
     from(bucket: "${influxConfig.bucket}")
@@ -86,19 +90,11 @@ const FSAESimulator = () => {
     `
   }
 
-  async function fetchSensorData(sensorName) {
-    const query = createSensorQuery(sensorName)
-    return executeQuery(query)
-  }
-
-
   const [realTimeData, setRealTimeData] = useState([])
 
-  // TESTING ZONE FOR INFLUX
-  // Add new state for inverter current
-  const [inverterCurrentData, setInverterCurrentData] = useState([]);
 
-  // Add new query function
+  // Add new state for INVERTER current
+  const [inverterCurrentData, setInverterCurrentData] = useState([]);
   async function fetchInverterCurrent() {
     const query = `
   from(bucket: "${influxConfig.bucket}")
@@ -133,9 +129,6 @@ const FSAESimulator = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const speedData = await fetchSensorData('VehicleSpeed');
-        const batteryTemp = await fetchSensorData('BatteryTemp');
-        const motorTemp = await fetchSensorData('MotorTemp');
         const currentData = await fetchInverterCurrent();
 
         // Set the state with the formatted data
