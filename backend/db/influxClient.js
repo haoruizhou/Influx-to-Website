@@ -1,13 +1,14 @@
-const { InfluxDB } = require("@influxdata/influxdb-client");
-const influxToken = "";
-const influxOrg = "";
-const influxBucket = "";
+// influxClient.js
+import { InfluxDB } from "@influxdata/influxdb-client";
 
-const influxDB = new InfluxDB({
-  url: "http://localhost:8086",
-  token: influxToken,
+export const INFLUX_TOKEN = "S7_Lv0ga61bwJ26sQ__j9aFR78ogF0t70K_mjdznrCB7bOfjl4fagr1Pl8Cz6RUFdqjNZwv7wa8HCVfcSruLGA==";
+export const INFLUX_ORG = "WFR";
+export const INFLUX_BUCKET = "ourCar";
+export const INFLUX_URL = "http://localhost:8086";
+
+export const influxDB = new InfluxDB({
+  url: INFLUX_URL,
+  token: INFLUX_TOKEN,
 });
 
-const writeApi = influxDB.getWriteApi(influxOrg, influxBucket);
-
-module.exports = { influxDB, writeApi };
+export const writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET);

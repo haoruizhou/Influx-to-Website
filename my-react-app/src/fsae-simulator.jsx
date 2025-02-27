@@ -3,7 +3,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'r
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Play, Pause, RotateCcw, Edit, Check } from 'lucide-react';
 
-
+import {
+  INFLUX_URL,
+  INFLUX_TOKEN,
+  INFLUX_ORG,
+  INFLUX_BUCKET,
+} from '../../backend/db/influxClient.js';
 
 const FSAESimulator = () => {
 
@@ -22,14 +27,13 @@ const FSAESimulator = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   });
 
-
   // InfluxDB setup
   const influxConfig = {
-    url: 'http://localhost:8086',
-    token: 'K85UHcCTLarwhBvWzdEBzalAmg29MxWizxYSvhfEZtVADsEWVp3xDl8SDoCFkLGxHGxhhksEDdqZSOFrhhXlNQ==',
-    org: 'WFR',
-    bucket: 'ourCar'
-  }
+    url: INFLUX_URL,
+    token: INFLUX_TOKEN,
+    org: INFLUX_ORG,
+    bucket: INFLUX_BUCKET
+  };
 
   // Main function for querying from Influx
   async function executeQuery(query) {
