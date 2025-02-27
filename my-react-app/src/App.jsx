@@ -1,8 +1,10 @@
 import React from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import FSAESimulator from "./fsae-simulator";
+import GLV from "./GLV";
 import "./App.css";
 import './background.css';
+
 
 
 function App() {
@@ -17,7 +19,7 @@ function App() {
             <li><Link to="/fsae-simulator">Brakes/Pedals</Link></li>
             <li><Link to="/fsae-simulator">Composites</Link></li>
             <li><Link to="/fsae-simulator">Ergo</Link></li>
-            <li><Link to="/fsae-simulator">GLV</Link></li>
+            <li><Link to="/GLV">GLV</Link></li>
             <li><Link to="/fsae-simulator">Suspension</Link></li>
             <li><Link to="/fsae-simulator">Tractive</Link></li>
             <li><Link to="/fsae-simulator">Wheels/Tires</Link></li>
@@ -29,6 +31,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/fsae-simulator" element={<FSAESimulator />} />
+          <Route path="/GLV" element={<GLV />} />
         </Routes>
       </div>
     </div>
