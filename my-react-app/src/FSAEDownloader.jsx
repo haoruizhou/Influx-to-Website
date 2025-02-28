@@ -5,16 +5,29 @@ import {
     INFLUX_ORG,
     INFLUX_BUCKET,
 } from '../../backend/db/influxClient.js';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
-// Fetch a distinct list of sensor names from InfluxDB
+// ------------------------------
+// Helper: Convert datetime-local value to RFC3339 (ISO) string.
+function toISO(datetimeLocal) {
+    return new Date(datetimeLocal).toISOString();
+}
+
+// Helper: Format current date for datetime-local input (YYYY-MM-DDTHH:MM)
+function toDatetimeLocal(date) {
+    const local = new Date(date);
+    local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+    return local.toISOString().slice(0, 16);
+}
+
+// Fetch a distinct list of sensor names from InfluxDB.
 async function fetchUniqueSensorsFromInflux() {
     const fluxQuery = `
-    from(bucket: "${INFLUX_BUCKET}")
-      |> range(start: -1d)
-      |> filter(fn: (r) => r["_measurement"] == "canBus")
-      |> distinct(column: "signalName")
-  `;
-
+from(bucket: "${INFLUX_BUCKET}")
+  |> range(start: -1d)
+  |> filter(fn: (r) => r["_measurement"] == "canBus")
+  |> distinct(column: "signalName")
+    `;
     const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
         method: 'POST',
         headers: {
@@ -24,27 +37,27 @@ async function fetchUniqueSensorsFromInflux() {
         },
         body: fluxQuery
     });
-
     if (!response.ok) {
         throw new Error(`InfluxDB query error: ${response.status} ${response.statusText}`);
     }
-
     const csvData = await response.text();
     return parseDistinctCsv(csvData);
 }
 
-// Fetch time series data for a given sensor using an absolute time range
+// Fetch time series data for a given sensor using an absolute time range.
+// Note: No aggregation is performed.
 async function fetchSensorDataForRange(sensorName, startTime, endTime) {
+    const startISO = toISO(startTime);
+    const endISO = toISO(endTime);
+    // Time values are now passed without quotes.
     const fluxQuery = `
-    from(bucket: "${INFLUX_BUCKET}")
-      |> range(start: "${startTime}", stop: "${endTime}")
-      |> filter(fn: (r) => r["_measurement"] == "canBus")
-      |> filter(fn: (r) => r["signalName"] == "${sensorName}")
-      |> filter(fn: (r) => r["_field"] == "sensorReading")
-      |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
-      |> yield(name: "mean")
-  `;
-
+from(bucket: "${INFLUX_BUCKET}")
+  |> range(start: ${startISO}, stop: ${endISO})
+  |> filter(fn: (r) => r["_measurement"] == "canBus")
+  |> filter(fn: (r) => r["signalName"] == "${sensorName}")
+  |> filter(fn: (r) => r["_field"] == "sensorReading")
+  |> yield(name: "raw")
+    `;
     const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
         method: 'POST',
         headers: {
@@ -54,11 +67,9 @@ async function fetchSensorDataForRange(sensorName, startTime, endTime) {
         },
         body: fluxQuery
     });
-
     if (!response.ok) {
         throw new Error(`InfluxDB query error: ${response.status} ${response.statusText}`);
     }
-
     const csvData = await response.text();
     return parseSensorCsv(csvData);
 }
@@ -70,7 +81,6 @@ function parseDistinctCsv(csvData) {
     const header = lines[0].split(',').map((cell) => cell.trim());
     const valueIndex = header.indexOf('_value');
     if (valueIndex < 0) return [];
-
     const results = [];
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map((cell) => cell.trim());
@@ -86,14 +96,12 @@ function parseSensorCsv(csvData) {
     const lines = csvData.trim().split('\n');
     if (lines.length < 2) return [];
     const header = lines[0].split(',').map((cell) => cell.trim());
-
     const timeIndex = header.indexOf('_time');
     const valueIndex = header.indexOf('_value');
     if (timeIndex < 0 || valueIndex < 0) {
         console.error('Missing _time or _value in CSV header:', header);
         return [];
     }
-
     const results = [];
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map((cell) => cell.trim());
@@ -117,12 +125,26 @@ function convertToCSV(data) {
     if (data.length === 0) return '';
     const headers = Object.keys(data[0]);
     const csvRows = [headers.join(',')];
-
     data.forEach((row) => {
         const values = headers.map(header => row[header]);
         csvRows.push(values.join(','));
     });
     return csvRows.join('\n');
+}
+
+// Generate the raw Flux query based on user inputs.
+function generateFluxQuery(selectedSensor, startTime, endTime) {
+    if (!selectedSensor || !startTime || !endTime) return '';
+    const startISO = toISO(startTime);
+    const endISO = toISO(endTime);
+    return `
+from(bucket: "${INFLUX_BUCKET}")
+  |> range(start: ${startISO}, stop: ${endISO})
+  |> filter(fn: (r) => r["_measurement"] == "canBus")
+  |> filter(fn: (r) => r["signalName"] == "${selectedSensor}")
+  |> filter(fn: (r) => r["_field"] == "sensorReading")
+  |> yield(name: "raw")
+    `.trim();
 }
 
 const FSAEDownloader = () => {
@@ -132,13 +154,22 @@ const FSAEDownloader = () => {
     const [endTime, setEndTime] = useState('');
     const [previewData, setPreviewData] = useState([]);
     const [fetchError, setFetchError] = useState(null);
+    const [currentLocalTime, setCurrentLocalTime] = useState(new Date());
+    const [customMinutes, setCustomMinutes] = useState(0);
+
+    // Update current time every second.
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            setCurrentLocalTime(new Date());
+        }, 1000);
+        return () => clearInterval(intervalId);
+    }, []);
 
     // On mount, fetch distinct sensor names.
     useEffect(() => {
         async function getSensors() {
             try {
                 const sensorNames = await fetchUniqueSensorsFromInflux();
-                // For convenience, assign a default color.
                 const sensorObjects = sensorNames.map((name) => ({
                     sensorName: name,
                     color: '#2563eb'
@@ -151,6 +182,23 @@ const FSAEDownloader = () => {
         }
         getSensors();
     }, []);
+
+    // Quick entry: set End Time to now.
+    const handleSetNow = () => {
+        setEndTime(toDatetimeLocal(new Date()));
+    };
+
+    // Quick entry: set Start Time to now minus 5 minutes.
+    const handleSetNowMinus5 = () => {
+        const dt = new Date(Date.now() - 5 * 60 * 1000);
+        setStartTime(toDatetimeLocal(dt));
+    };
+
+    // Quick entry: set Start Time to now minus custom minutes.
+    const handleSetNowMinusCustom = () => {
+        const dt = new Date(Date.now() - customMinutes * 60 * 1000);
+        setStartTime(toDatetimeLocal(dt));
+    };
 
     // Handle preview button click.
     const handlePreview = async () => {
@@ -178,10 +226,12 @@ const FSAEDownloader = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        // Set filename including sensor name and current timestamp.
         link.setAttribute('download', `${selectedSensor}_${Date.now()}.csv`);
         link.click();
     };
+
+    // Generate query preview whenever inputs change.
+    const queryPreview = generateFluxQuery(selectedSensor, startTime, endTime);
 
     return (
         <div style={{ padding: '1rem', fontFamily: 'Arial, sans-serif' }}>
@@ -192,6 +242,12 @@ const FSAEDownloader = () => {
                     Error: {fetchError}
                 </div>
             )}
+
+            {/* Display Current Local Time and UTC Time */}
+            <div style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem' }}>
+                <strong>Current Local Time:</strong> {currentLocalTime.toLocaleString()}<br />
+                <strong>Current UTC Time:</strong> {currentLocalTime.toISOString()}
+            </div>
 
             {/* Sensor Selection */}
             <div style={{ marginBottom: '1rem' }}>
@@ -210,13 +266,50 @@ const FSAEDownloader = () => {
             </div>
 
             {/* Time Range Inputs */}
-            <div style={{ marginBottom: '1rem' }}>
-                <label style={{ marginRight: '0.5rem' }}>Start Time:</label>
-                <input
-                    type="datetime-local"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                />
+            <div style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                <div>
+                    <label style={{ marginRight: '0.5rem' }}>Start Time:</label>
+                    <input
+                        type="datetime-local"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                    />
+                </div>
+                <button
+                    onClick={handleSetNowMinus5}
+                    style={{
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: '#2563eb',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Now minus 5 min
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <input
+                        type="number"
+                        placeholder="min"
+                        value={customMinutes}
+                        onChange={(e) => setCustomMinutes(Number(e.target.value))}
+                        style={{ width: '60px' }}
+                    />
+                    <button
+                        onClick={handleSetNowMinusCustom}
+                        style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#2563eb',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Now minus custom
+                    </button>
+                </div>
             </div>
             <div style={{ marginBottom: '1rem' }}>
                 <label style={{ marginRight: '0.5rem' }}>End Time:</label>
@@ -225,6 +318,35 @@ const FSAEDownloader = () => {
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                 />
+                <button
+                    onClick={handleSetNow}
+                    style={{
+                        marginLeft: '0.5rem',
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: '#2563eb',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Now
+                </button>
+            </div>
+
+            {/* Query Preview Window */}
+            <div style={{
+                border: '1px solid #ccc',
+                backgroundColor: '#f4f4f4',
+                padding: '1rem',
+                marginBottom: '1rem',
+                maxHeight: '200px',
+                overflowY: 'auto'
+            }}>
+                <h2>Query Preview</h2>
+                <pre style={{ whiteSpace: 'pre-wrap' }}>
+                    {queryPreview || 'No query to display.'}
+                </pre>
             </div>
 
             {/* Preview and Download Buttons */}
@@ -258,25 +380,47 @@ const FSAEDownloader = () => {
                 </button>
             </div>
 
-            {/* Preview Window */}
+            {/* Data Preview Window */}
             <div style={{
                 border: '1px solid #ccc',
                 padding: '1rem',
-                maxHeight: '400px',
-                overflowY: 'auto',
                 backgroundColor: '#f9f9f9'
             }}>
                 <h2>Data Preview</h2>
                 {previewData.length === 0 ? (
                     <p>No data to preview.</p>
                 ) : (
-                    <pre style={{ whiteSpace: 'pre-wrap' }}>
-            {previewData.map((dp, index) => {
-                // Format time as local string
-                const date = new Date(dp.time).toLocaleString();
-                return `${index + 1}. ${date}, ${dp.value}\n`;
-            })}
-          </pre>
+                    <>
+                        {/* Chart Preview */}
+                        <LineChart width={500} height={300} data={previewData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis
+                                dataKey="time"
+                                tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+                            />
+                            <YAxis
+                                label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
+                            />
+                            <Tooltip
+                                labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
+                            />
+                            <Line type="monotone" dataKey="value" stroke="#2563eb" dot={false} />
+                        </LineChart>
+                        {/* Raw Data Preview (limited to ~10 lines with scrollbar) */}
+                        <pre style={{
+                            whiteSpace: 'pre-wrap',
+                            marginTop: '1rem',
+                            maxHeight: '150px',
+                            overflowY: 'auto',
+                            border: '1px solid #ddd',
+                            padding: '0.5rem'
+                        }}>
+                            {previewData.map((dp, index) => {
+                                const date = new Date(dp.time).toLocaleString();
+                                return `${index + 1}. ${date}, ${dp.value}\n`;
+                            })}
+                        </pre>
+                    </>
                 )}
             </div>
         </div>
