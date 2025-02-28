@@ -43,7 +43,7 @@ async function fetchSensorData(signalName, timeRangeSec) {
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> filter(fn: (r) => r["signalName"] == "${signalName}")
       |> filter(fn: (r) => r["_field"] == "sensorReading")
-      |> aggregateWindow(every: 100ms, fn: mean, createEmpty: false)
+      |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
       |> yield(name: "mean")
   `;
 
@@ -87,13 +87,12 @@ function parseDistinctCsv(csvData) {
 
 /**
  * Parse CSV from a time series query:
- *   Looks for _time and _value columns, converting them into { time, value }.
+ *   Converts _time and _value columns into { time, value }.
  */
 function parseSensorCsv(csvData) {
   const lines = csvData.trim().split('\n');
   if (lines.length < 2) return [];
   const header = lines[0].split(',').map((cell) => cell.trim());
-
   const timeIndex = header.indexOf('_time');
   const valueIndex = header.indexOf('_value');
   if (timeIndex < 0 || valueIndex < 0) {
@@ -119,19 +118,16 @@ function parseSensorCsv(csvData) {
   return results;
 }
 
-// OverlayChart uses sensor.color (assigned only when toggled to overlay)
+// OverlayChart uses each overlay sensor's assigned color.
 const OverlayChart = ({ sensors, timeRangeSec }) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
     async function fetchOverlayData() {
       try {
-        // Fetch data for all selected sensors concurrently
         const sensorDataArray = await Promise.all(
             sensors.map((sensor) => fetchSensorData(sensor.sensorName, timeRangeSec))
         );
-
-        // Merge sensor data by time
         if (sensorDataArray.length === 0) return;
         const mergedData = sensorDataArray[0].map((point, index) => {
           let mergedPoint = { time: point.time };
@@ -148,7 +144,6 @@ const OverlayChart = ({ sensors, timeRangeSec }) => {
 
     if (sensors.length > 0) {
       fetchOverlayData();
-      // Poll for dynamic updates
       const intervalId = setInterval(fetchOverlayData, 1000);
       return () => clearInterval(intervalId);
     }
@@ -189,12 +184,15 @@ const OverlayChart = ({ sensors, timeRangeSec }) => {
 };
 
 const DynamicCharts = () => {
+  // Chart and sensor states
   const [sensorCharts, setSensorCharts] = useState([]);
   const [availableSensors, setAvailableSensors] = useState([]);
   const [overlaySensors, setOverlaySensors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [fetchError, setFetchError] = useState(null);
   const [timeRangeSec, setTimeRangeSec] = useState(60);
+  // Preset string state for saving/loading configurations
+  const [presetString, setPresetString] = useState('');
 
   const sensorChartsRef = useRef(sensorCharts);
   const timeRangeSecRef = useRef(timeRangeSec);
@@ -212,16 +210,13 @@ const DynamicCharts = () => {
     '#f43f5e',
     '#7c3aed',
   ];
-
-  // We'll track our current color index for overlay sensors
   const [colorIndex, setColorIndex] = useState(0);
 
-  // On mount, fetch distinct sensor names (no color assigned here)
+  // Fetch available sensors on mount (store only sensorName)
   useEffect(() => {
     async function getSensors() {
       try {
         const sensorNames = await fetchUniqueSensorsFromInflux();
-        // Just store sensorName; no color
         const sensorObjects = sensorNames.map((name) => ({ sensorName: name }));
         setAvailableSensors(sensorObjects);
       } catch (error) {
@@ -232,7 +227,6 @@ const DynamicCharts = () => {
     getSensors();
   }, []);
 
-  // Keep references updated
   useEffect(() => {
     sensorChartsRef.current = sensorCharts;
   }, [sensorCharts]);
@@ -241,13 +235,12 @@ const DynamicCharts = () => {
     timeRangeSecRef.current = timeRangeSec;
   }, [timeRangeSec]);
 
-  // Poll for new data every second for individual charts
+  // Poll for updates on individual sensor charts
   useEffect(() => {
     const intervalId = setInterval(async () => {
       const currentCharts = sensorChartsRef.current;
       const currentRange = timeRangeSecRef.current;
       if (currentCharts.length === 0) return;
-
       try {
         const updatedCharts = await Promise.all(
             currentCharts.map(async (chart) => {
@@ -260,20 +253,16 @@ const DynamicCharts = () => {
         console.error('Error polling sensor data:', err);
       }
     }, 1000);
-
     return () => clearInterval(intervalId);
   }, []);
 
   // Toggle sensor selection for overlay
   const toggleOverlaySensor = (sensor) => {
     setOverlaySensors((prev) => {
-      // Check if sensor is already in overlay
       const existing = prev.find((s) => s.sensorName === sensor.sensorName);
       if (existing) {
-        // Remove from overlay
         return prev.filter((s) => s.sensorName !== sensor.sensorName);
       } else {
-        // Add to overlay with a color from the palette
         const color = colorPalette[colorIndex % colorPalette.length];
         setColorIndex((prevIndex) => prevIndex + 1);
         const overlaySensor = { sensorName: sensor.sensorName, color };
@@ -282,14 +271,14 @@ const DynamicCharts = () => {
     });
   };
 
-  // Add new chart for an individual sensor (always same color, e.g. #2563eb)
+  // Add a new individual chart (always with default color)
   const addChart = async (sensorConfig) => {
     try {
       const dataPoints = await fetchSensorData(sensorConfig.sensorName, timeRangeSec);
       const newChart = {
         sensorName: sensorConfig.sensorName,
-        color: '#2563eb', // Single default color for individual charts
-        id: Date.now(),
+        color: '#2563eb',
+        id: Date.now() + Math.random(),
         data: dataPoints,
       };
       setSensorCharts((prev) => [...prev, newChart]);
@@ -298,12 +287,41 @@ const DynamicCharts = () => {
     }
   };
 
-  // Remove an individual sensor chart
+  // Remove an individual chart
   const removeChart = (chartId) => {
     setSensorCharts((prev) => prev.filter((chart) => chart.id !== chartId));
   };
 
-  // Filter sensor list by search term
+  // Preset export: create an object with current settings and encode it as a base64 string.
+  const exportPreset = () => {
+    const preset = {
+      timeRangeSec,
+      individualSensors: sensorCharts.map((chart) => chart.sensorName),
+      overlaySensors, // includes sensorName and assigned color
+    };
+    return btoa(JSON.stringify(preset));
+  };
+
+  // Preset import: decode the preset string and apply the configuration.
+  const importPreset = (presetStr) => {
+    try {
+      const decoded = atob(presetStr);
+      const preset = JSON.parse(decoded);
+      setTimeRangeSec(preset.timeRangeSec);
+      const newSensorCharts = preset.individualSensors.map((sensorName) => ({
+        sensorName,
+        color: '#2563eb',
+        id: Date.now() + Math.random(),
+        data: [],
+      }));
+      setSensorCharts(newSensorCharts);
+      setOverlaySensors(preset.overlaySensors);
+    } catch (err) {
+      console.error("Error importing preset:", err);
+    }
+  };
+
+  // Filter available sensors by search term.
   const filteredSensors = availableSensors
       .filter((sensor) =>
           sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -311,146 +329,174 @@ const DynamicCharts = () => {
       .slice(0, 200);
 
   return (
-      <div style={{ display: 'flex', padding: '1rem' }}>
-        {/* Sidebar */}
-        <div
-            style={{
-              width: '250px',
-              marginRight: '1rem',
-              borderRight: '1px solid #ccc',
-              paddingRight: '1rem',
-              maxHeight: '80vh',
-              overflowY: 'auto',
-            }}
-        >
-          <h2>Available Sensors</h2>
-          {fetchError && (
-              <div style={{ color: 'red', marginBottom: '1rem' }}>
-                Failed to fetch sensors: {fetchError}
-              </div>
-          )}
-
-          {/* Search bar */}
-          <input
-              type="text"
-              placeholder="Search sensors..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+      <div style={{ padding: '1rem' }}>
+        {/* Preset Manager UI */}
+        <div style={{ marginBottom: '1rem' }}>
+          <h3>Preset Manager</h3>
+          <textarea
+              value={presetString}
+              onChange={(e) => setPresetString(e.target.value)}
+              placeholder="Preset code will appear here after saving, or paste code here to load a preset"
+              rows={3}
               style={{ width: '100%', marginBottom: '0.5rem' }}
           />
-
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {filteredSensors.map((sensor, index) => (
-                <li
-                    key={index}
-                    style={{
-                      marginBottom: '0.5rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                >
-                  <span>{sensor.sensorName}</span>
-                  <button
-                      onClick={() => addChart(sensor)}
-                      style={{
-                        marginLeft: '0.5rem',
-                        padding: '0.25rem 0.5rem',
-                        backgroundColor: '#2563eb',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
-                  >
-                    Add Chart
-                  </button>
-                  <button
-                      onClick={() => toggleOverlaySensor(sensor)}
-                      style={{
-                        marginLeft: '0.5rem',
-                        padding: '0.25rem 0.5rem',
-                        backgroundColor: overlaySensors.find((s) => s.sensorName === sensor.sensorName)
-                            ? '#10b981'
-                            : '#6b7280',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
-                  >
-                    {overlaySensors.find((s) => s.sensorName === sensor.sensorName)
-                        ? 'Remove Overlay'
-                        : 'Add Overlay'}
-                  </button>
-                </li>
-            ))}
-          </ul>
+          <div>
+            <button
+                onClick={() => {
+                  const code = exportPreset();
+                  setPresetString(code);
+                  alert("Preset saved! Code is in the text area.");
+                }}
+            >
+              Save Preset
+            </button>
+            <button
+                onClick={() => {
+                  importPreset(presetString);
+                  alert("Preset loaded!");
+                }}
+                style={{ marginLeft: '0.5rem' }}
+            >
+              Load Preset
+            </button>
+          </div>
         </div>
 
-        {/* Main Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Universal Time Range Selector */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ marginRight: '0.5rem' }}>Time Range (seconds):</label>
+        <div style={{ display: 'flex' }}>
+          {/* Sidebar */}
+          <div
+              style={{
+                width: '250px',
+                marginRight: '1rem',
+                borderRight: '1px solid #ccc',
+                paddingRight: '1rem',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+              }}
+          >
+            <h2>Available Sensors</h2>
+            {fetchError && (
+                <div style={{ color: 'red', marginBottom: '1rem' }}>
+                  Failed to fetch sensors: {fetchError}
+                </div>
+            )}
             <input
-                type="number"
-                value={timeRangeSec}
-                onChange={(e) => setTimeRangeSec(Number(e.target.value))}
-                style={{ width: '100px' }}
+                type="text"
+                placeholder="Search sensors..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: '100%', marginBottom: '0.5rem' }}
             />
-          </div>
-
-          {/* Overlay Chart Area */}
-          {overlaySensors.length > 0 && (
-              <OverlayChart sensors={overlaySensors} timeRangeSec={timeRangeSec} />
-          )}
-
-          {/* Individual Sensor Charts (all one color) */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-            {sensorCharts.map((chart) => (
-                <Card key={chart.id} style={{ width: '420px' }}>
-                  <CardHeader
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {filteredSensors.map((sensor, index) => (
+                  <li
+                      key={index}
+                      style={{
+                        marginBottom: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
                   >
-                    <CardTitle>{chart.sensorName}</CardTitle>
+                    <span>{sensor.sensorName}</span>
                     <button
-                        onClick={() => removeChart(chart.id)}
+                        onClick={() => addChart(sensor)}
                         style={{
                           marginLeft: '0.5rem',
                           padding: '0.25rem 0.5rem',
-                          backgroundColor: '#ef4444',
+                          backgroundColor: '#2563eb',
                           color: '#fff',
                           border: 'none',
                           borderRadius: '4px',
                           cursor: 'pointer',
                         }}
                     >
-                      Remove Chart
+                      Add Chart
                     </button>
-                  </CardHeader>
-                  <CardContent>
-                    <LineChart width={400} height={200} data={chart.data}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                          dataKey="time"
-                          tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
-                      />
-                      <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
-                      <Tooltip
-                          labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                          formatter={(value) => [value, '']}
-                      />
-                      <Line
-                          type="monotone"
-                          dataKey="value"
-                          stroke={chart.color} // single color for individual charts
-                          dot={false}
-                          isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </CardContent>
-                </Card>
-            ))}
+                    <button
+                        onClick={() => toggleOverlaySensor(sensor)}
+                        style={{
+                          marginLeft: '0.5rem',
+                          padding: '0.25rem 0.5rem',
+                          backgroundColor: overlaySensors.find((s) => s.sensorName === sensor.sensorName)
+                              ? '#10b981'
+                              : '#6b7280',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                    >
+                      {overlaySensors.find((s) => s.sensorName === sensor.sensorName)
+                          ? 'Remove Overlay'
+                          : 'Add Overlay'}
+                    </button>
+                  </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Main Area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ marginRight: '0.5rem' }}>Time Range (seconds):</label>
+              <input
+                  type="number"
+                  value={timeRangeSec}
+                  onChange={(e) => setTimeRangeSec(Number(e.target.value))}
+                  style={{ width: '100px' }}
+              />
+            </div>
+
+            {overlaySensors.length > 0 && (
+                <OverlayChart sensors={overlaySensors} timeRangeSec={timeRangeSec} />
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+              {sensorCharts.map((chart) => (
+                  <Card key={chart.id} style={{ width: '420px' }}>
+                    <CardHeader
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <CardTitle>{chart.sensorName}</CardTitle>
+                      <button
+                          onClick={() => removeChart(chart.id)}
+                          style={{
+                            marginLeft: '0.5rem',
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                      >
+                        Remove Chart
+                      </button>
+                    </CardHeader>
+                    <CardContent>
+                      <LineChart width={400} height={200} data={chart.data}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                            dataKey="time"
+                            tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+                        />
+                        <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
+                        <Tooltip
+                            labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
+                            formatter={(value) => [value, '']}
+                        />
+                        <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke={chart.color}
+                            dot={false}
+                            isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </CardContent>
+                  </Card>
+              ))}
+            </div>
           </div>
         </div>
       </div>
