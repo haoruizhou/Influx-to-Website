@@ -10,7 +10,7 @@ import {
   INFLUX_BUCKET,
 } from '../../backend/db/influxClient.js';
 
-const FSAESimulator = () => {
+const WFRSimulator = () => {
 
   // random car color generator
   const [carColor] = useState(() => {
@@ -464,7 +464,7 @@ const FSAESimulator = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
-                <span>FSAE Race Track Simulation</span>
+                <span>WFR Race Track Simulation</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsPlaying(!isPlaying)}
@@ -532,7 +532,7 @@ const FSAESimulator = () => {
                   ))}
 
 
-                {/* FSAE Race Car */}
+                {/* WFR Race Car */}
                 <g
                   transform={`translate(${carPosition.x},${carPosition.y}) rotate(${carPosition.angle})`}
                 >
@@ -647,4 +647,4 @@ const FSAESimulator = () => {
 }
 
 
-export default FSAESimulator;
+export default WFRSimulator;

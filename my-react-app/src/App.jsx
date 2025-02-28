@@ -2,7 +2,7 @@ import React from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import FSAESimulator from "./fsae-simulator";
 import GLV from "./GLV";
-import FSAEDownloader from "./FSAEDownloader";  // Import the component
+import WFRDownloader from "./WFRDownloader.jsx";  // Import the component
 import "./App.css";
 import './background.css';
 
@@ -16,13 +16,13 @@ function App() {
               <li><Link to="/fsae-simulator">FSAE Simulator</Link></li>
               <li><Link to="/fsae-simulator">Aero</Link></li>
               <li><Link to="/fsae-simulator">Brakes/Pedals</Link></li>
-              <li><Link to="/fsae-simulator">Composites</Link></li>
-              <li><Link to="/fsae-simulator">Ergo</Link></li>
+              {/*<li><Link to="/fsae-simulator">Composites</Link></li>*/}
+              {/*<li><Link to="/fsae-simulator">Ergo</Link></li>*/}
               <li><Link to="/GLV">GLV</Link></li>
               <li><Link to="/fsae-simulator">Suspension</Link></li>
               <li><Link to="/fsae-simulator">Tractive</Link></li>
               <li><Link to="/fsae-simulator">Wheels/Tires</Link></li>
-              <li><Link to="/FSAEDownloader">FSAE Downloader</Link></li>
+              <li><Link to="/WFRDownloader">WFR Downloader</Link></li>
             </ul>
           </div>
         </nav>
@@ -32,7 +32,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/fsae-simulator" element={<FSAESimulator />} />
             <Route path="/GLV" element={<GLV />} />
-            <Route path="/FSAEDownloader" element={<FSAEDownloader />} /> {/* Added this line */}
+            <Route path="/WFRDownloader" element={<WFRDownloader />} /> {/* Added this line */}
           </Routes>
         </div>
       </div>

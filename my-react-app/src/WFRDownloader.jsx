@@ -147,7 +147,7 @@ from(bucket: "${INFLUX_BUCKET}")
     `.trim();
 }
 
-const FSAEDownloader = () => {
+const WFRDownloader = () => {
     const [availableSensors, setAvailableSensors] = useState([]);
     const [selectedSensor, setSelectedSensor] = useState('');
     const [startTime, setStartTime] = useState('');
@@ -235,7 +235,7 @@ const FSAEDownloader = () => {
 
     return (
         <div style={{ padding: '1rem', fontFamily: 'Arial, sans-serif' }}>
-            <h1>FSAE Downloader</h1>
+            <h1>WFR Downloader</h1>
 
             {fetchError && (
                 <div style={{ color: 'red', marginBottom: '1rem' }}>
@@ -427,4 +427,4 @@ const FSAEDownloader = () => {
     );
 };
 
-export default FSAEDownloader;
+export default WFRDownloader;
