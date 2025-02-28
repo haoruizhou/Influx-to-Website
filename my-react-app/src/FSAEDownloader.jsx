@@ -337,7 +337,7 @@ const FSAEDownloader = () => {
             {/* Query Preview Window */}
             <div style={{
                 border: '1px solid #ccc',
-                backgroundColor: '#f4f4f4',
+                backgroundColor: 'darkblue',
                 padding: '1rem',
                 marginBottom: '1rem',
                 maxHeight: '200px',
@@ -384,7 +384,7 @@ const FSAEDownloader = () => {
             <div style={{
                 border: '1px solid #ccc',
                 padding: '1rem',
-                backgroundColor: '#f9f9f9'
+                backgroundColor: 'darkblue'
             }}>
                 <h2>Data Preview</h2>
                 {previewData.length === 0 ? (

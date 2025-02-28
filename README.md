@@ -4,6 +4,15 @@ npm install @influxdata/influxdb-client
 
 
 
+
+
+# Next Steps
+
+Feature Requests
+
+1. Allow custom x-axis, to plot sensor value against another value
+2. Overlay of graphs (Influxdb graph viewer supports natively)
+
 # Testing setup - with Python script and docker Influx - HZ
 
 

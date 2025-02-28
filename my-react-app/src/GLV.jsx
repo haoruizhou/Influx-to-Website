@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import {
   INFLUX_URL,
@@ -119,40 +119,110 @@ function parseSensorCsv(csvData) {
   return results;
 }
 
-const DynamicCharts = () => {
-  // Chart configs
-  const [sensorCharts, setSensorCharts] = useState([]);
-  // List of available sensors
-  const [availableSensors, setAvailableSensors] = useState([]);
-  // Sidebar search
-  const [searchTerm, setSearchTerm] = useState('');
-  // Error handling
-  const [fetchError, setFetchError] = useState(null);
+// OverlayChart uses sensor.color (assigned only when toggled to overlay)
+const OverlayChart = ({ sensors, timeRangeSec }) => {
+  const [data, setData] = useState([]);
 
-  // The universal time range in seconds (default 60 = last 1 minute)
+  useEffect(() => {
+    async function fetchOverlayData() {
+      try {
+        // Fetch data for all selected sensors concurrently
+        const sensorDataArray = await Promise.all(
+            sensors.map((sensor) => fetchSensorData(sensor.sensorName, timeRangeSec))
+        );
+
+        // Merge sensor data by time
+        if (sensorDataArray.length === 0) return;
+        const mergedData = sensorDataArray[0].map((point, index) => {
+          let mergedPoint = { time: point.time };
+          sensors.forEach((sensor, idx) => {
+            mergedPoint[sensor.sensorName] = sensorDataArray[idx][index]?.value || null;
+          });
+          return mergedPoint;
+        });
+        setData(mergedData);
+      } catch (error) {
+        console.error("Error fetching overlay data:", error);
+      }
+    }
+
+    if (sensors.length > 0) {
+      fetchOverlayData();
+      // Poll for dynamic updates
+      const intervalId = setInterval(fetchOverlayData, 1000);
+      return () => clearInterval(intervalId);
+    }
+  }, [sensors, timeRangeSec]);
+
+  return (
+      <Card style={{ width: '450px', marginBottom: '1rem' }}>
+        <CardHeader>
+          <CardTitle>Sensor Overlay</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LineChart width={400} height={300} data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+                dataKey="time"
+                tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+            />
+            <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
+            <Tooltip
+                labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
+                formatter={(value) => [value, '']}
+            />
+            <Legend />
+            {sensors.map((sensor) => (
+                <Line
+                    key={sensor.sensorName}
+                    type="monotone"
+                    dataKey={sensor.sensorName}
+                    stroke={sensor.color}
+                    dot={false}
+                    isAnimationActive={false}
+                />
+            ))}
+          </LineChart>
+        </CardContent>
+      </Card>
+  );
+};
+
+const DynamicCharts = () => {
+  const [sensorCharts, setSensorCharts] = useState([]);
+  const [availableSensors, setAvailableSensors] = useState([]);
+  const [overlaySensors, setOverlaySensors] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [fetchError, setFetchError] = useState(null);
   const [timeRangeSec, setTimeRangeSec] = useState(60);
 
-  // --- 1) Keep refs for sensorCharts & timeRangeSec to avoid multiple intervals
   const sensorChartsRef = useRef(sensorCharts);
   const timeRangeSecRef = useRef(timeRangeSec);
 
-  useEffect(() => {
-    sensorChartsRef.current = sensorCharts;
-  }, [sensorCharts]);
+  // Color palette for overlay only
+  const colorPalette = [
+    '#2563eb',
+    '#10b981',
+    '#f97316',
+    '#ef4444',
+    '#eab308',
+    '#8b5cf6',
+    '#ec4899',
+    '#14b8a6',
+    '#f43f5e',
+    '#7c3aed',
+  ];
 
-  useEffect(() => {
-    timeRangeSecRef.current = timeRangeSec;
-  }, [timeRangeSec]);
+  // We'll track our current color index for overlay sensors
+  const [colorIndex, setColorIndex] = useState(0);
 
-  // --- 2) Fetch distinct sensor names on mount
+  // On mount, fetch distinct sensor names (no color assigned here)
   useEffect(() => {
     async function getSensors() {
       try {
         const sensorNames = await fetchUniqueSensorsFromInflux();
-        const sensorObjects = sensorNames.map((name) => ({
-          sensorName: name,
-          color: '#2563eb',
-        }));
+        // Just store sensorName; no color
+        const sensorObjects = sensorNames.map((name) => ({ sensorName: name }));
         setAvailableSensors(sensorObjects);
       } catch (error) {
         console.error('Error fetching sensors:', error);
@@ -162,7 +232,16 @@ const DynamicCharts = () => {
     getSensors();
   }, []);
 
-  // --- 3) Poll for new data every second
+  // Keep references updated
+  useEffect(() => {
+    sensorChartsRef.current = sensorCharts;
+  }, [sensorCharts]);
+
+  useEffect(() => {
+    timeRangeSecRef.current = timeRangeSec;
+  }, [timeRangeSec]);
+
+  // Poll for new data every second for individual charts
   useEffect(() => {
     const intervalId = setInterval(async () => {
       const currentCharts = sensorChartsRef.current;
@@ -183,14 +262,33 @@ const DynamicCharts = () => {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, []); // run once on mount
+  }, []);
 
-  // Called when user selects "Add Chart"
+  // Toggle sensor selection for overlay
+  const toggleOverlaySensor = (sensor) => {
+    setOverlaySensors((prev) => {
+      // Check if sensor is already in overlay
+      const existing = prev.find((s) => s.sensorName === sensor.sensorName);
+      if (existing) {
+        // Remove from overlay
+        return prev.filter((s) => s.sensorName !== sensor.sensorName);
+      } else {
+        // Add to overlay with a color from the palette
+        const color = colorPalette[colorIndex % colorPalette.length];
+        setColorIndex((prevIndex) => prevIndex + 1);
+        const overlaySensor = { sensorName: sensor.sensorName, color };
+        return [...prev, overlaySensor];
+      }
+    });
+  };
+
+  // Add new chart for an individual sensor (always same color, e.g. #2563eb)
   const addChart = async (sensorConfig) => {
     try {
       const dataPoints = await fetchSensorData(sensorConfig.sensorName, timeRangeSec);
       const newChart = {
-        ...sensorConfig,
+        sensorName: sensorConfig.sensorName,
+        color: '#2563eb', // Single default color for individual charts
         id: Date.now(),
         data: dataPoints,
       };
@@ -200,7 +298,12 @@ const DynamicCharts = () => {
     }
   };
 
-  // Filter the list of sensors by searchTerm, limit to 200
+  // Remove an individual sensor chart
+  const removeChart = (chartId) => {
+    setSensorCharts((prev) => prev.filter((chart) => chart.id !== chartId));
+  };
+
+  // Filter sensor list by search term
   const filteredSensors = availableSensors
       .filter((sensor) =>
           sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -252,7 +355,7 @@ const DynamicCharts = () => {
                       style={{
                         marginLeft: '0.5rem',
                         padding: '0.25rem 0.5rem',
-                        backgroundColor: sensor.color,
+                        backgroundColor: '#2563eb',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '4px',
@@ -261,14 +364,32 @@ const DynamicCharts = () => {
                   >
                     Add Chart
                   </button>
+                  <button
+                      onClick={() => toggleOverlaySensor(sensor)}
+                      style={{
+                        marginLeft: '0.5rem',
+                        padding: '0.25rem 0.5rem',
+                        backgroundColor: overlaySensors.find((s) => s.sensorName === sensor.sensorName)
+                            ? '#10b981'
+                            : '#6b7280',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                  >
+                    {overlaySensors.find((s) => s.sensorName === sensor.sensorName)
+                        ? 'Remove Overlay'
+                        : 'Add Overlay'}
+                  </button>
                 </li>
             ))}
           </ul>
         </div>
 
-        {/* Main area: Time Range Control + Charts */}
+        {/* Main Area */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Universal time range selector */}
+          {/* Universal Time Range Selector */}
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ marginRight: '0.5rem' }}>Time Range (seconds):</label>
             <input
@@ -279,35 +400,50 @@ const DynamicCharts = () => {
             />
           </div>
 
-          {/* Charts container */}
+          {/* Overlay Chart Area */}
+          {overlaySensors.length > 0 && (
+              <OverlayChart sensors={overlaySensors} timeRangeSec={timeRangeSec} />
+          )}
+
+          {/* Individual Sensor Charts (all one color) */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
             {sensorCharts.map((chart) => (
                 <Card key={chart.id} style={{ width: '420px' }}>
-                  <CardHeader>
+                  <CardHeader
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
                     <CardTitle>{chart.sensorName}</CardTitle>
+                    <button
+                        onClick={() => removeChart(chart.id)}
+                        style={{
+                          marginLeft: '0.5rem',
+                          padding: '0.25rem 0.5rem',
+                          backgroundColor: '#ef4444',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                    >
+                      Remove Chart
+                    </button>
                   </CardHeader>
                   <CardContent>
                     <LineChart width={400} height={200} data={chart.data}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
                           dataKey="time"
-                          tickFormatter={(unixTime) =>
-                              new Date(unixTime).toLocaleTimeString()
-                          }
+                          tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
                       />
-                      <YAxis
-                          label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-                      />
+                      <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
                       <Tooltip
-                          labelFormatter={(unixTime) =>
-                              new Date(unixTime).toLocaleString()
-                          }
+                          labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
                           formatter={(value) => [value, '']}
                       />
                       <Line
                           type="monotone"
                           dataKey="value"
-                          stroke={chart.color}
+                          stroke={chart.color} // single color for individual charts
                           dot={false}
                           isAnimationActive={false}
                       />
