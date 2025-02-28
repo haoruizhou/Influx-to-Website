@@ -43,7 +43,7 @@ async function fetchSensorData(signalName, timeRangeSec) {
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> filter(fn: (r) => r["signalName"] == "${signalName}")
       |> filter(fn: (r) => r["_field"] == "sensorReading")
-      |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
+      |> aggregateWindow(every: 100ms, fn: mean, createEmpty: false)
       |> yield(name: "mean")
   `;
 

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+
 /* Global Styles */
 body {
   background: url('./assets/background.png') center center / cover no-repeat fixed;
@@ -10,6 +12,10 @@ html, body {
   padding: 0;
   box-sizing: border-box;
   height: 100%;
+}
+
+body {
+  font-family: 'Open Sans', sans-serif;
 }
 
 body::before {
