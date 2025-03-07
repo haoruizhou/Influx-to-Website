@@ -2,11 +2,11 @@
     "name": "backend",
     "private": true,
     "version": "1.0.0",
-    "main": "index.jsx",
+    "main": "index.js",
     "type": "module",
     "scripts": {
-        "start": "node index.jsx",
-        "dev": "nodemon index.jsx"
+        "start": "node index.js",
+        "dev": "nodemon index.js"
     },
     "dependencies": {
         "cors": "^2.8.5",

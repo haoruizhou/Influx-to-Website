@@ -9,7 +9,6 @@ async function fetchUniqueSensorsFromInflux() {
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> distinct(column: "signalName")
   `;
-
     const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
         method: 'POST',
         headers: {
