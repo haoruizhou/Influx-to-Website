@@ -22,3 +22,4 @@ body::before {
     pointer-events: none; /* Ensures the overlay doesn't block interaction with content */
     z-index: 0; /* Ensures it's behind the content */
 }
+
