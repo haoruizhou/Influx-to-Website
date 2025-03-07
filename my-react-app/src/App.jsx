@@ -3,6 +3,8 @@ import { Routes, Route, Link } from "react-router-dom";
 import FSAESimulator from "./fsae-simulator";
 import GLV from "./GLV";
 import WFRDownloader from "./WFRDownloader.jsx";  // Import the component
+import WFRLogo from './assets/WFR_DAQ_Logo.png';
+import OldGLV from "./oldGLV";
 import "./App.css";
 import './background.css';
 
@@ -19,8 +21,8 @@ function App() {
               {/*<li><Link to="/fsae-simulator">Composites</Link></li>*/}
               {/*<li><Link to="/fsae-simulator">Ergo</Link></li>*/}
               <li><Link to="/GLV">GLV</Link></li>
+                <li><Link to="/oldGLV">oldGLV</Link></li>
               <li><Link to="/fsae-simulator">Suspension</Link></li>
-              <li><Link to="/fsae-simulator">Tractive</Link></li>
               <li><Link to="/fsae-simulator">Wheels/Tires</Link></li>
               <li><Link to="/WFRDownloader">WFR Downloader</Link></li>
             </ul>
@@ -32,14 +34,14 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/fsae-simulator" element={<FSAESimulator />} />
             <Route path="/GLV" element={<GLV />} />
-            <Route path="/WFRDownloader" element={<WFRDownloader />} /> {/* Added this line */}
+            <Route path="/WFRDownloader" element={<WFRDownloader />} />
+              <Route path="/oldGLV" element={<OldGLV />} />
           </Routes>
         </div>
       </div>
   );
 }
 
-import WFRLogo from './assets/WFR_DAQ_Logo.png';
 
 function Home() {
     return (
