@@ -140,3 +140,58 @@ Output:
 
 Future Development: 
 On the live monitor dashboard, the x-axis of the plot should be -60s to 0s (current), instead of absolute time. 
+
+
+
+
+
+# Hosting
+
+1. Export local docker: docker tag influxdb:latest myusername/influxdb:latest
+
+docker push myusername/influxdb:latest
+
+https://docs.docker.com/engine/install/ubuntu/
+
+
+
+sudo docker build --platform linux/amd64 -t myusername/influxdb:latest .
+
+
+
+
+
+Install docker on Ubuntu/whatever version of linux that you are using
+
+
+
+docker login
+
+docker pull myusername/influxdb:latest
+
+
+
+And then run it
+
+
+
+sudo docker start influxwfr
+
+
+
+## Change on React
+
+
+
+Change influxClient.js
+
+```
+export const INFLUX_URL = "http://[YOUR IPV6]:8086";
+```
+
+
+
+Add TCP 8086 rule on Lightsail
+
+
+
