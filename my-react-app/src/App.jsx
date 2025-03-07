@@ -39,12 +39,20 @@ function App() {
   );
 }
 
+import WFRLogo from './assets/WFR_DAQ_Logo.png';
+
 function Home() {
-  return (
-      <div className="home">
-        <h1>Western Formula Racing</h1>
-      </div>
-  );
+    return (
+        <div className="home">
+            <img
+                src={WFRLogo}
+                alt="Western Formula Racing Data Acquisition Logo"
+                style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'contain' }}
+            />
+
+            <h1>Western Formula Racing Data Acquisition</h1>
+        </div>
+    );
 }
 
 export default App;

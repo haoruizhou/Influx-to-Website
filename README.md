@@ -11,8 +11,8 @@ npm install @influxdata/influxdb-client
 Feature Requests
 
 1. Allow custom x-axis, to plot sensor value against another value
-2. Overlay of graphs (Influxdb graph viewer supports natively)
-
+2. [completed] Overlay of graphs (Influxdb graph viewer supports natively) 
+3. Pull units from InfluxDB and display on the graph
 # Testing setup - with Python script and docker Influx - HZ
 
 

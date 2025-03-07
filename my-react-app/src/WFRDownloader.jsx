@@ -404,7 +404,7 @@ const WFRDownloader = () => {
                             <Tooltip
                                 labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
                             />
-                            <Line type="monotone" dataKey="value" stroke="#2563eb" dot={false} />
+                            <Line type="monotone" dataKey="value" stroke="#FFA500" dot={false} />
                         </LineChart>
                         {/* Raw Data Preview (limited to ~10 lines with scrollbar) */}
                         <pre style={{
