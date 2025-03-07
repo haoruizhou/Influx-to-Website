@@ -12,3 +12,5 @@ export const influxDB = new InfluxDB({
 });
 
 export const writeApi = influxDB.getWriteApi(INFLUX_ORG, INFLUX_BUCKET);
+
+
