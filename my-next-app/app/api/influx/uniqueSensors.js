@@ -6,7 +6,7 @@ async function fetchUniqueSensorsFromInflux() {
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> distinct(column: "signalName")
   `;
-    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
+    const response = await fetch('/api/influx/influx-proxy', {
         method: 'POST',
         headers: {
             Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
@@ -39,7 +39,7 @@ async function fetchSensorData(signalName, timeRangeSec) {
       |> yield(name: "mean")
   `;
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
+    const response = await fetch('/api/influx/influx-proxy', {
         method: 'POST',
         headers: {
             Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
