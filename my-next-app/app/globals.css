@@ -1,0 +1,179 @@
+/* Import TailwindCSS and Google Fonts */
+@import "tailwindcss";
+/*@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');*/
+
+/* Root Variables */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --color-primary: #1f252c;
+  --color-secondary: #FFD700;
+  --color-light: #ededed;
+  --color-dark: #0a0a0a;
+  --font-sans: 'Open Sans', sans-serif;
+}
+
+/* Dark Mode Variables */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--color-dark);
+    --foreground: var(--color-light);
+  }
+}
+
+/* Global Reset */
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Full-Page Overlay */
+body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 0;
+}
+
+/* Flex Container for Content */
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 80px);
+  padding: 1rem;
+  text-align: center;
+}
+
+/* Content Container Styling */
+.content-container {
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  margin: 0 auto;
+  color: var(--foreground);
+}
+
+/* Typography */
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
+
+p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+}
+
+/* Navbar */
+.navbar {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 2rem;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  transition: color 0.3s ease-in-out;
+}
+
+.nav-links a:hover {
+  color: var(--color-secondary);
+}
+
+/* Buttons */
+.button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  border-radius: 4px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease-in-out;
+}
+
+.button:hover {
+  background: var(--color-secondary);
+  color: var(--color-primary);
+}
+
+/* Cards */
+.card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  margin: 1rem auto;
+}
+
+.card-header {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.card-content {
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+/* Footer */
+.footer {
+  background: var(--color-primary);
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 2rem;
+  }
+
+  .content-container {
+    padding: 1.5rem;
+  }
+
+  .navbar {
+    padding: 0.5rem;
+  }
+}
