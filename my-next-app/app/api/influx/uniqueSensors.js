@@ -1,14 +1,15 @@
+
 async function fetchUniqueSensorsFromInflux() {
     const fluxQuery = `
-    from(bucket: "${process.env.INFLUX_BUCKET}")
+    from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
       |> range(start: -1d)
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> distinct(column: "signalName")
   `;
-    const response = await fetch(`${process.env.INFLUX_URL}/api/v2/query?org=${process.env.INFLUX_ORG}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${process.env.INFLUX_TOKEN}`,
+            Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
@@ -16,8 +17,9 @@ async function fetchUniqueSensorsFromInflux() {
     });
 
     if (!response.ok) {
-        console.log("Influx URL:", process.env.INFLUX_URL);
-        console.log("Influx ORG:", process.env.INFLUX_ORG);
+        console.log("Influx URL:", process.env.NEXT_PUBLIC_INFLUX_URL);
+        console.log("Influx ORG:", process.env.NEXT_PUBLIC_INFLUX_ORG);
+        console.log(fluxQuery)
         throw new Error(`InfluxDB query error: ${response.status} ${response.statusText}`);
     }
 
@@ -28,7 +30,7 @@ async function fetchUniqueSensorsFromInflux() {
 // 2) Fetch time series data for a sensor over the last "timeRangeSec" seconds
 async function fetchSensorData(signalName, timeRangeSec) {
     const fluxQuery = `
-    from(bucket: "${process.env.INFLUX_BUCKET}")
+    from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
       |> range(start: -${timeRangeSec}s)
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> filter(fn: (r) => r["signalName"] == "${signalName}")
@@ -37,10 +39,10 @@ async function fetchSensorData(signalName, timeRangeSec) {
       |> yield(name: "mean")
   `;
 
-    const response = await fetch(`${process.env.INFLUX_URL}/api/v2/query?org=${process.env.INFLUX_ORG}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${process.env.INFLUX_TOKEN}`,
+            Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },

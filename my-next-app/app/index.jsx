@@ -1,5 +1,5 @@
 "use client";
-
+require('dotenv').config();
 import React from "react";
 import Image from "next/image";
 import WFRLogo from "../public/WFR_DAQ_Logo.png"; // Place your image in the public/assets folder
