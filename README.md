@@ -28,7 +28,21 @@ Feature Requests
 1. Install Docker
 2. in cmd: 
 
-```docker run -d -p 8086:8086 -v "%cd%/influxdb/data:/var/lib/influxdb2" -v "%cd%/influxdb/config:/etc/influxdb2" -e DOCKER_INFLUXDB_INIT_MODE=setup -e DOCKER_INFLUXDB_INIT_USERNAME=myuser -e DOCKER_INFLUXDB_INIT_PASSWORD=mypassword123 -e DOCKER_INFLUXDB_INIT_ORG=myorg -e DOCKER_INFLUXDB_INIT_BUCKET=mybucket --name influxdb influxdb:2``` 
+```
+sudo docker run -d \
+  --name influxwfr \
+  -p 8086:8086 \
+  -v ~/influxdb/data:/var/lib/influxdb2 \
+  -v ~/influxdb/config:/etc/influxdb2 \
+  -e DOCKER_INFLUXDB_INIT_MODE=setup \
+  -e DOCKER_INFLUXDB_INIT_USERNAME=myuser \
+  -e DOCKER_INFLUXDB_INIT_PASSWORD=mypassword123 \
+  -e DOCKER_INFLUXDB_INIT_ORG=WFR \
+  -e DOCKER_INFLUXDB_INIT_BUCKET=ourCar \
+  influxdb:2
+```
+
+
 
 
 
@@ -151,47 +165,127 @@ On the live monitor dashboard, the x-axis of the plot should be -60s to 0s (curr
 
 docker push myusername/influxdb:latest
 
-https://docs.docker.com/engine/install/ubuntu/
-
-
-
-sudo docker build --platform linux/amd64 -t myusername/influxdb:latest .
-
-
-
-
-
-Install docker on Ubuntu/whatever version of linux that you are using
-
-
-
-docker login
-
-docker pull myusername/influxdb:latest
-
-
-
-And then run it
-
-
-
-sudo docker start influxwfr
-
-
-
-## Change on React
-
-
-
-Change influxClient.js
+**🚀 Step 1: Pull the Latest InfluxDB Image**
 
 ```
-export const INFLUX_URL = "http://[YOUR IPV6]:8086";
+sudo docker pull influxdb:2
+```
+
+------
+
+**🚀 Step 2: Create Directories for Persistent Storage**
+
+Create directories on your **Lightsail instance** to store **InfluxDB data** and **configurations**:
+
+```
+mkdir -p ~/influxdb/data
+mkdir -p ~/influxdb/config
+```
+
+Give Docker permission to access them:
+
+```
+sudo chown -R 1000:1000 ~/influxdb
 ```
 
 
 
-Add TCP 8086 rule on Lightsail
+**🚀 Step 3: Run the InfluxDB Container with the Correct Settings**
+
+Now, run the container using your updated configuration:
+
+```
+sudo docker run -d \
+  --name influxwfr \
+  -p 8086:8086 \
+  -v ~/influxdb/data:/var/lib/influxdb2 \
+  -v ~/influxdb/config:/etc/influxdb2 \
+  -e DOCKER_INFLUXDB_INIT_MODE=setup \
+  -e DOCKER_INFLUXDB_INIT_USERNAME=myuser \
+  -e DOCKER_INFLUXDB_INIT_PASSWORD=mypassword123 \
+  -e DOCKER_INFLUXDB_INIT_ORG=WFR \
+  -e DOCKER_INFLUXDB_INIT_BUCKET=ourCar \
+  influxdb:2
+```
+
+**🚀 Step 4: Verify the Container is Running**
+
+Check the status:
+
+```
+sudo docker ps -a
+```
+
+​	•	If **STATUS** is Up, the container is running. ✅
+
+​	•	If it **exits**, check logs:
+
+```
+sudo docker logs influxwfr
+```
 
 
+
+**🚀 Step 5: Test the Connection**
+
+1️⃣ Check if InfluxDB is listening inside the container:
+
+```
+sudo docker exec -it influxwfr influx ping
+```
+
+Expected output:
+
+```
+OK
+```
+
+2️⃣ Test the API on your **Lightsail instance**:
+
+```
+curl -i http://localhost:8086/ping
+```
+
+Expected output:
+
+```
+HTTP/1.1 204 No Content
+```
+
+3️⃣ Test from your **local machine**:
+
+```
+curl -i http://35.183.158.105:8086/ping
+```
+
+If this fails, double-check **AWS Lightsail Firewall Rules** to **allow inbound traffic on port 8086**.
+
+
+
+**🚀 Step 6: Retrieve Your InfluxDB Token**
+
+Run:
+
+```
+sudo docker exec influxwfr influx auth list
+```
+
+Copy the **admin token**, as you’ll need it for your Python script.
+
+
+
+**🚀 Step 7: Update Your Python Script (readCAN2.py)**
+
+Modify your script to use the correct InfluxDB credentials:
+
+```
+influx_url = "http://35.183.158.105:8086"
+token = "your_token_here"
+```
+
+Run the script:
+
+```
+python readCAN2.py
+```
 
