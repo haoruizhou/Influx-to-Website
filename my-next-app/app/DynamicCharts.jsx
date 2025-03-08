@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-// import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { fetchUniqueSensorsFromInflux, fetchSensorData, parseSensorCsv, parseDistinctCsv } from "./api/influx/uniqueSensors";
 
 // OverlayChart uses each overlay sensor's assigned color.
