@@ -3,7 +3,7 @@
 import "./globals.css"; // Ensure your CSS file is imported
 import Link from "next/link";
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en">
         <body>
