@@ -4,12 +4,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
 // ------------------------------
 // Helper: Convert datetime-local value to RFC3339 (ISO) string.
-function toISO(datetimeLocal) {
+function toISO(datetimeLocal: string): string {
     return new Date(datetimeLocal).toISOString();
 }
 
 // Helper: Format current date for datetime-local input (YYYY-MM-DDTHH:MM)
-function toDatetimeLocal(date) {
+function toDatetimeLocal(date: string): string {
     const local = new Date(date);
     local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
     return local.toISOString().slice(0, 16);
@@ -18,7 +18,6 @@ function toDatetimeLocal(date) {
 // ------------------------------
 // 1) Fetch distinct sensor names using the proxy endpoint
 async function fetchUniqueSensorsFromInflux() {
-    // Example: You can adjust the bucket name or use environment variables
     const fluxQuery = `
 from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
   |> range(start: -1d)
@@ -26,7 +25,6 @@ from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
   |> distinct(column: "signalName")
     `;
 
-    // **Call the proxy instead of Influx directly**
     const response = await fetch('/api/proxy-influx', {
         method: 'POST',
         headers: {
@@ -46,7 +44,7 @@ from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
 
 // ------------------------------
 // 2) Fetch sensor data for an absolute time range using the proxy endpoint
-async function fetchSensorDataForRange(sensorName, startTime, endTime) {
+async function fetchSensorDataForRange(sensorName: string, startTime: string, endTime: string) {
     const startISO = toISO(startTime);
     const endISO = toISO(endTime);
 
@@ -59,7 +57,6 @@ from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
   |> yield(name: "raw")
     `;
 
-    // **Call the proxy instead of Influx directly**
     const response = await fetch('/api/proxy-influx', {
         method: 'POST',
         headers: {
@@ -79,14 +76,14 @@ from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
 
 // ------------------------------
 // 3) Parse CSV for distinct sensor query results
-function parseDistinctCsv(csvData) {
+function parseDistinctCsv(csvData: string): string[] {
     const lines = csvData.trim().split('\n');
     if (lines.length < 2) return [];
     const header = lines[0].split(',').map((cell) => cell.trim());
     const valueIndex = header.indexOf('_value');
     if (valueIndex < 0) return [];
 
-    const results = [];
+    const results: string[] = [];
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map((cell) => cell.trim());
         if (row.length === header.length) {
@@ -98,7 +95,7 @@ function parseDistinctCsv(csvData) {
 
 // ------------------------------
 // 4) Parse CSV from a time series query, extracting _time and _value.
-function parseSensorCsv(csvData) {
+function parseSensorCsv(csvData: string): { time: number; value: number }[] {
     const lines = csvData.trim().split('\n');
     if (lines.length < 2) return [];
     const header = lines[0].split(',').map((cell) => cell.trim());
@@ -109,7 +106,7 @@ function parseSensorCsv(csvData) {
         return [];
     }
 
-    const results = [];
+    const results: { time: number; value: number }[] = [];
     for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map((cell) => cell.trim());
         if (row.length === header.length) {
@@ -129,20 +126,20 @@ function parseSensorCsv(csvData) {
 
 // ------------------------------
 // 5) Convert array of objects to CSV text (for download)
-function convertToCSV(data) {
+function convertToCSV(data: any[]): string {
     if (data.length === 0) return '';
     const headers = Object.keys(data[0]);
     const csvRows = [headers.join(',')];
     data.forEach((row) => {
-        const values = headers.map(header => row[header]);
+        const values = headers.map((header) => row[header]);
         csvRows.push(values.join(','));
     });
     return csvRows.join('\n');
 }
 
 // ------------------------------
-// 6) Generate the raw Flux query text for the "preview" window (not actually used in fetch calls).
-function generateFluxQuery(selectedSensor, startTime, endTime) {
+// 6) Generate the raw Flux query text for the "preview" window.
+function generateFluxQuery(selectedSensor: string, startTime: string, endTime: string): string {
     if (!selectedSensor || !startTime || !endTime) return '';
     const startISO = toISO(startTime);
     const endISO = toISO(endTime);
@@ -159,24 +156,26 @@ from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
 // ------------------------------
 // 7) Main component
 const WFRDownloader = () => {
-    const [availableSensors, setAvailableSensors] = useState([]);
+    // Hydration fix: render dynamic time only after the component mounts.
+    const [hasMounted, setHasMounted] = useState(false);
+    const [availableSensors, setAvailableSensors] = useState<{ sensorName: string; color?: string }[]>([]);
     const [selectedSensor, setSelectedSensor] = useState('');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
-    const [previewData, setPreviewData] = useState([]);
-    const [fetchError, setFetchError] = useState(null);
+    const [previewData, setPreviewData] = useState<{ time: number; value: number }[]>([]);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [currentLocalTime, setCurrentLocalTime] = useState(new Date());
     const [customMinutes, setCustomMinutes] = useState(0);
 
-    // Update current time every second
     useEffect(() => {
+        setHasMounted(true);
         const intervalId = setInterval(() => {
             setCurrentLocalTime(new Date());
         }, 1000);
         return () => clearInterval(intervalId);
     }, []);
 
-    // On mount, fetch distinct sensor names
+    // On mount, fetch distinct sensor names.
     useEffect(() => {
         async function getSensors() {
             try {
@@ -186,7 +185,7 @@ const WFRDownloader = () => {
                     color: '#2563eb'
                 }));
                 setAvailableSensors(sensorObjects);
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error fetching sensors:', error);
                 setFetchError(error.message);
             }
@@ -194,24 +193,24 @@ const WFRDownloader = () => {
         getSensors();
     }, []);
 
-    // Quick entry: set End Time to now
+    // Quick entry: set End Time to now.
     const handleSetNow = () => {
-        setEndTime(toDatetimeLocal(new Date()));
+        setEndTime(toDatetimeLocal(new Date().toString()));
     };
 
-    // Quick entry: set Start Time to now minus 5 minutes
+    // Quick entry: set Start Time to now minus 5 minutes.
     const handleSetNowMinus5 = () => {
         const dt = new Date(Date.now() - 5 * 60 * 1000);
-        setStartTime(toDatetimeLocal(dt));
+        setStartTime(toDatetimeLocal(dt.toString()));
     };
 
-    // Quick entry: set Start Time to now minus custom minutes
+    // Quick entry: set Start Time to now minus custom minutes.
     const handleSetNowMinusCustom = () => {
         const dt = new Date(Date.now() - customMinutes * 60 * 1000);
-        setStartTime(toDatetimeLocal(dt));
+        setStartTime(toDatetimeLocal(dt.toString()));
     };
 
-    // Handle preview button click
+    // Handle preview button click.
     const handlePreview = async () => {
         if (!selectedSensor || !startTime || !endTime) {
             alert('Please select a sensor and set both start and end times.');
@@ -220,13 +219,13 @@ const WFRDownloader = () => {
         try {
             const dataPoints = await fetchSensorDataForRange(selectedSensor, startTime, endTime);
             setPreviewData(dataPoints);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error fetching sensor data:', err);
             setFetchError(err.message);
         }
     };
 
-    // Handle CSV download
+    // Handle CSV download.
     const handleDownload = () => {
         const csvText = convertToCSV(previewData);
         if (!csvText) {
@@ -241,7 +240,7 @@ const WFRDownloader = () => {
         link.click();
     };
 
-    // Generate query preview whenever inputs change
+    // Generate query preview whenever inputs change.
     const queryPreview = generateFluxQuery(selectedSensor, startTime, endTime);
 
     return (
@@ -254,11 +253,13 @@ const WFRDownloader = () => {
                 </div>
             )}
 
-            {/* Display Current Local Time and UTC Time */}
-            <div style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem' }}>
-                <strong>Current Local Time:</strong> {currentLocalTime.toLocaleString()}<br />
-                <strong>Current UTC Time:</strong> {currentLocalTime.toISOString()}
-            </div>
+            {/* Display Current Local Time and UTC Time only after mount */}
+            {hasMounted && (
+                <div style={{ marginBottom: '1rem', border: '1px solid #ccc', padding: '0.5rem' }}>
+                    <strong>Current Local Time:</strong> {currentLocalTime.toLocaleString()}<br />
+                    <strong>Current UTC Time:</strong> {currentLocalTime.toISOString()}
+                </div>
+            )}
 
             {/* Sensor Selection */}
             <div style={{ marginBottom: '1rem' }}>
@@ -409,15 +410,11 @@ const WFRDownloader = () => {
                                 dataKey="time"
                                 tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
                             />
-                            <YAxis
-                                label={{ value: 'Value', angle: -90, position: 'insideLeft' }}
-                            />
-                            <Tooltip
-                                labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                            />
+                            <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
+                            <Tooltip labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()} />
                             <Line type="monotone" dataKey="value" stroke="#FFA500" dot={false} />
                         </LineChart>
-                        {/* Raw Data Preview (limited lines with scrollbar) */}
+                        {/* Raw Data Preview */}
                         <pre style={{
                             whiteSpace: 'pre-wrap',
                             marginTop: '1rem',
