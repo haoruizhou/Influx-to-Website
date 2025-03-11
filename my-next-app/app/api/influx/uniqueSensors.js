@@ -1,4 +1,3 @@
-
 async function fetchUniqueSensorsFromInflux() {
     const fluxQuery = `
     from(bucket: "${process.env.NEXT_PUBLIC_INFLUX_BUCKET}")
@@ -6,10 +5,10 @@ async function fetchUniqueSensorsFromInflux() {
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> distinct(column: "signalName")
   `;
-    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
+    // **MODIFIED: Using proxy endpoint instead of direct InfluxDB URL and removing Authorization header**
+    const response = await fetch(`/api/proxy-influx`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
@@ -17,9 +16,7 @@ async function fetchUniqueSensorsFromInflux() {
     });
 
     if (!response.ok) {
-        console.log("Influx URL:", process.env.NEXT_PUBLIC_INFLUX_URL);
-        console.log("Influx ORG:", process.env.NEXT_PUBLIC_INFLUX_ORG);
-        console.log(fluxQuery)
+        console.log("Proxy call to InfluxDB failed. Query:", fluxQuery);
         throw new Error(`InfluxDB query error: ${response.status} ${response.statusText}`);
     }
 
@@ -39,10 +36,10 @@ async function fetchSensorData(signalName, timeRangeSec) {
       |> yield(name: "mean")
   `;
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_INFLUX_URL}/api/v2/query?org=${process.env.NEXT_PUBLIC_INFLUX_ORG}`, {
+    // **MODIFIED: Using proxy endpoint instead of direct InfluxDB URL and removing Authorization header**
+    const response = await fetch(`/api/proxy-influx`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${process.env.NEXT_PUBLIC_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
