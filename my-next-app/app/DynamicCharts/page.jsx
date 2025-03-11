@@ -256,10 +256,11 @@ export default function Page() {
                         style={{
                             position: 'sticky',
                             top: '0px',
-                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
                             padding: '0.5rem',
                             zIndex: 10,
                         }}
+                        className={"headerBlur"}
                     >
                         <h2 style={{ color: '#fff', margin: 0 }}>Available Sensors</h2>
                         {fetchError && (

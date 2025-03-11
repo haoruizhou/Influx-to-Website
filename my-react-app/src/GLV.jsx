@@ -1,37 +1,81 @@
+"use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
+import { INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET } from "../../backend/db/influxClient.js";
 
-// **Updated fetch functions to call backend API endpoints**
-async function fetchUniqueSensors() {
-  try {
-    const response = await fetch('http://localhost:5000/api/sensors');
-    if (!response.ok) {
-      throw new Error(`Error fetching sensors: ${response.status} ${response.statusText}`);
-    }
-    const result = await response.json();
-    return result.sensors;
-  } catch (error) {
-    console.error("Error in fetchUniqueSensors:", error);
-    throw error;
-  }
+// InfluxDB Helper Functions
+function parseDistinctCsv(csvData) {
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) return [];
+  const header = lines[0].split(',').map((cell) => cell.trim());
+  const valueIndex = header.indexOf('_value');
+  return lines.slice(1).map(line => line.split(',')[valueIndex].trim());
+}
+
+function parseSensorCsv(csvData) {
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) return [];
+  const header = lines[0].split(',').map((cell) => cell.trim());
+  const timeIndex = header.indexOf('_time');
+  const valueIndex = header.indexOf('_value');
+
+  return lines.slice(1).map(line => {
+    const cells = line.split(',').map(cell => cell.trim());
+    return {
+      time: new Date(cells[timeIndex]).getTime(),
+      value: parseFloat(cells[valueIndex])
+    };
+  }).filter(item => !isNaN(item.value));
+}
+
+async function fetchUniqueSensorsFromInflux() {
+  const fluxQuery = `
+    from(bucket: "${INFLUX_BUCKET}")
+      |> range(start: -1d)
+      |> filter(fn: (r) => r["_measurement"] == "canBus")
+      |> distinct(column: "signalName")
+  `;
+
+  const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${INFLUX_TOKEN}`,
+      'Content-Type': 'application/vnd.flux',
+      Accept: 'application/csv'
+    },
+    body: fluxQuery
+  });
+
+  if (!response.ok) throw new Error(`InfluxDB error: ${response.statusText}`);
+  return parseDistinctCsv(await response.text());
 }
 
 async function fetchSensorData(signalName, timeRangeSec) {
-  try {
-    const response = await fetch(`http://localhost:5000/api/sensor-data?signalName=${encodeURIComponent(signalName)}&timeRangeSec=${timeRangeSec}`);
-    if (!response.ok) {
-      throw new Error(`Error fetching sensor data: ${response.status} ${response.statusText}`);
-    }
-    const result = await response.json();
-    return result.data;
-  } catch (error) {
-    console.error("Error in fetchSensorData:", error);
-    throw error;
-  }
+  const fluxQuery = `
+    from(bucket: "${INFLUX_BUCKET}")
+      |> range(start: -${timeRangeSec}s)
+      |> filter(fn: (r) => r["_measurement"] == "canBus")
+      |> filter(fn: (r) => r["signalName"] == "${signalName}")
+      |> filter(fn: (r) => r["_field"] == "sensorReading")
+      |> aggregateWindow(every: 1s, fn: mean, createEmpty: false)
+      |> yield(name: "mean")
+  `;
+
+  const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${INFLUX_TOKEN}`,
+      'Content-Type': 'application/vnd.flux',
+      Accept: 'application/csv'
+    },
+    body: fluxQuery
+  });
+
+  if (!response.ok) throw new Error(`InfluxDB error: ${response.statusText}`);
+  return parseSensorCsv(await response.text());
 }
 
-// OverlayChart uses each overlay sensor's assigned color.
 const OverlayChart = ({ sensors, timeRangeSec }) => {
   const [data, setData] = useState([]);
 
@@ -41,14 +85,15 @@ const OverlayChart = ({ sensors, timeRangeSec }) => {
         const sensorDataArray = await Promise.all(
             sensors.map((sensor) => fetchSensorData(sensor.sensorName, timeRangeSec))
         );
-        if (sensorDataArray.length === 0) return;
-        const mergedData = sensorDataArray[0].map((point, index) => {
+
+        const mergedData = sensorDataArray[0]?.map((point, index) => {
           let mergedPoint = { time: point.time };
           sensors.forEach((sensor, idx) => {
             mergedPoint[sensor.sensorName] = sensorDataArray[idx][index]?.value || null;
           });
           return mergedPoint;
-        });
+        }) || [];
+
         setData(mergedData);
       } catch (error) {
         console.error("Error fetching overlay data:", error);
@@ -70,15 +115,9 @@ const OverlayChart = ({ sensors, timeRangeSec }) => {
         <CardContent>
           <LineChart width={400} height={300} data={data}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-                dataKey="time"
-                tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
-            />
+            <XAxis dataKey="time" tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()} />
             <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
-            <Tooltip
-                labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                formatter={(value) => [value, '']}
-            />
+            <Tooltip labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()} />
             <Legend />
             {sensors.map((sensor) => (
                 <Line
@@ -96,7 +135,7 @@ const OverlayChart = ({ sensors, timeRangeSec }) => {
   );
 };
 
-const DynamicCharts = () => {
+export default function Page() {
   const [sensorCharts, setSensorCharts] = useState([]);
   const [availableSensors, setAvailableSensors] = useState([]);
   const [overlaySensors, setOverlaySensors] = useState([]);
@@ -107,33 +146,23 @@ const DynamicCharts = () => {
 
   const sensorChartsRef = useRef(sensorCharts);
   const timeRangeSecRef = useRef(timeRangeSec);
-
   const colorPalette = [
-    '#2563eb',
-    '#10b981',
-    '#f97316',
-    '#ef4444',
-    '#eab308',
-    '#8b5cf6',
-    '#ec4899',
-    '#14b8a6',
-    '#f43f5e',
-    '#7c3aed',
+    '#2563eb', '#10b981', '#f97316', '#ef4444', '#eab308',
+    '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#7c3aed'
   ];
   const [colorIndex, setColorIndex] = useState(0);
 
   useEffect(() => {
-    async function getSensors() {
+    async function loadSensors() {
       try {
-        const sensorNames = await fetchUniqueSensors();
-        const sensorObjects = sensorNames.map((name) => ({ sensorName: name }));
-        setAvailableSensors(sensorObjects);
+        const sensorNames = await fetchUniqueSensorsFromInflux();
+        setAvailableSensors(sensorNames.map(name => ({ sensorName: name })));
       } catch (error) {
-        console.error('Error fetching sensors:', error);
+        console.error('Sensor load error:', error);
         setFetchError(error.message);
       }
     }
-    getSensors();
+    loadSensors();
   }, []);
 
   useEffect(() => {
@@ -141,97 +170,90 @@ const DynamicCharts = () => {
   }, [sensorCharts]);
 
   useEffect(() => {
-    timeRangeSecRef.current = timeRangeSec;
-  }, [timeRangeSec]);
-
-  useEffect(() => {
     const intervalId = setInterval(async () => {
       const currentCharts = sensorChartsRef.current;
-      const currentRange = timeRangeSecRef.current;
-      if (currentCharts.length === 0) return;
       try {
         const updatedCharts = await Promise.all(
-            currentCharts.map(async (chart) => {
-              const dataPoints = await fetchSensorData(chart.sensorName, currentRange);
-              return { ...chart, data: dataPoints };
-            })
+            currentCharts.map(async chart => ({
+              ...chart,
+              data: await fetchSensorData(chart.sensorName, timeRangeSecRef.current)
+            }))
         );
         setSensorCharts(updatedCharts);
-      } catch (err) {
-        console.error('Error polling sensor data:', err);
+      } catch (error) {
+        console.error('Polling error:', error);
       }
     }, 1000);
     return () => clearInterval(intervalId);
   }, []);
 
   const toggleOverlaySensor = (sensor) => {
-    setOverlaySensors((prev) => {
-      const existing = prev.find((s) => s.sensorName === sensor.sensorName);
-      if (existing) {
-        return prev.filter((s) => s.sensorName !== sensor.sensorName);
-      } else {
-        const color = colorPalette[colorIndex % colorPalette.length];
-        setColorIndex((prevIndex) => prevIndex + 1);
-        const overlaySensor = { sensorName: sensor.sensorName, color };
-        return [...prev, overlaySensor];
-      }
+    setOverlaySensors(prev => {
+      const existing = prev.find(s => s.sensorName === sensor.sensorName);
+      if (existing) return prev.filter(s => s !== existing);
+
+      const newSensor = {
+        ...sensor,
+        color: colorPalette[colorIndex % colorPalette.length]
+      };
+      setColorIndex(prev => prev + 1);
+      return [...prev, newSensor];
     });
   };
 
-  const addChart = async (sensorConfig) => {
+  const addChart = async (sensor) => {
     try {
-      const dataPoints = await fetchSensorData(sensorConfig.sensorName, timeRangeSec);
-      const newChart = {
-        sensorName: sensorConfig.sensorName,
-        color: '#2563eb',
-        id: Date.now() + Math.random(),
-        data: dataPoints,
-      };
-      setSensorCharts((prev) => [...prev, newChart]);
-    } catch (err) {
-      console.error('Error fetching sensor data:', err);
+      const dataPoints = await fetchSensorData(sensor.sensorName, timeRangeSec);
+      setSensorCharts(prev => [
+        ...prev,
+        {
+          sensorName: sensor.sensorName,
+          color: '#2563eb',
+          id: Date.now() + Math.random(),
+          data: dataPoints
+        }
+      ]);
+    } catch (error) {
+      console.error('Chart add error:', error);
     }
   };
 
   const removeChart = (chartId) => {
-    setSensorCharts((prev) => prev.filter((chart) => chart.id !== chartId));
+    setSensorCharts(prev => prev.filter(chart => chart.id !== chartId));
   };
 
   const exportPreset = () => {
     const preset = {
       timeRangeSec,
-      individualSensors: sensorCharts.map((chart) => chart.sensorName),
-      overlaySensors,
+      individualSensors: sensorCharts.map(chart => chart.sensorName),
+      overlaySensors
     };
     return btoa(JSON.stringify(preset));
   };
 
   const importPreset = (presetStr) => {
     try {
-      const decoded = atob(presetStr);
-      const preset = JSON.parse(decoded);
+      const preset = JSON.parse(atob(presetStr));
       setTimeRangeSec(preset.timeRangeSec);
-      const newSensorCharts = preset.individualSensors.map((sensorName) => ({
+      setSensorCharts(preset.individualSensors.map(sensorName => ({
         sensorName,
         color: '#2563eb',
         id: Date.now() + Math.random(),
-        data: [],
-      }));
-      setSensorCharts(newSensorCharts);
+        data: []
+      })));
       setOverlaySensors(preset.overlaySensors);
-    } catch (err) {
-      console.error("Error importing preset:", err);
+    } catch (error) {
+      console.error('Preset import error:', error);
     }
   };
 
   const filteredSensors = availableSensors
-      .filter((sensor) =>
-          sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      .filter(sensor => sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase()))
       .slice(0, 200);
 
   return (
       <div style={{ padding: '1rem' }}>
+        {/* Preset Manager */}
         <div style={{ marginBottom: '1rem' }}>
           <h3>Preset Manager</h3>
           <textarea
@@ -242,20 +264,11 @@ const DynamicCharts = () => {
               style={{ width: '100%', marginBottom: '0.5rem' }}
           />
           <div>
-            <button
-                onClick={() => {
-                  const code = exportPreset();
-                  setPresetString(code);
-                  alert("Preset saved! Code is in the text area.");
-                }}
-            >
+            <button onClick={() => setPresetString(exportPreset())}>
               Save Preset
             </button>
             <button
-                onClick={() => {
-                  importPreset(presetString);
-                  alert("Preset loaded!");
-                }}
+                onClick={() => importPreset(presetString)}
                 style={{ marginLeft: '0.5rem' }}
             >
               Load Preset
@@ -263,86 +276,88 @@ const DynamicCharts = () => {
           </div>
         </div>
 
+        {/* Main Content */}
         <div style={{ display: 'flex' }}>
-          <div
-              style={{
-                width: '250px',
-                marginRight: '1rem',
-                borderRight: '1px solid #ccc',
-                paddingRight: '1rem',
-                maxHeight: '80vh',
-                overflowY: 'auto',
-              }}
-          >
-            <h2>Available Sensors</h2>
-            {fetchError && (
-                <div style={{ color: 'red', marginBottom: '1rem' }}>
-                  Failed to fetch sensors: {fetchError}
-                </div>
-            )}
-            <input
-                type="text"
-                placeholder="Search sensors..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ width: '100%', marginBottom: '0.5rem' }}
-            />
+          {/* Sensors Sidebar */}
+          <div style={{
+            width: '300px',
+            marginRight: '1rem',
+            borderRight: '1px solid #ccc',
+            paddingRight: '1rem',
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(8px)',
+              padding: '0.5rem 0',
+              zIndex: 1
+            }}>
+              <h2>Available Sensors</h2>
+              {fetchError && (
+                  <div style={{ color: 'red', marginBottom: '0.5rem' }}>
+                    Error: {fetchError}
+                  </div>
+              )}
+              <input
+                  type="text"
+                  placeholder="Search sensors..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ width: '100%', marginBottom: '0.5rem' }}
+              />
+            </div>
+
             <ul style={{ listStyle: 'none', padding: 0 }}>
               {filteredSensors.map((sensor, index) => (
-                  <li
-                      key={index}
-                      style={{
-                        marginBottom: '0.5rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                  >
-                    <span>{sensor.sensorName}</span>
+                  <li key={index} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ flex: 1 }}>{sensor.sensorName}</span>
                     <button
                         onClick={() => addChart(sensor)}
                         style={{
                           marginLeft: '0.5rem',
                           padding: '0.25rem 0.5rem',
                           backgroundColor: '#2563eb',
-                          color: '#fff',
+                          color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: 'pointer',
+                          cursor: 'pointer'
                         }}
                     >
-                      Add Chart
+                      Add
                     </button>
                     <button
                         onClick={() => toggleOverlaySensor(sensor)}
                         style={{
-                          marginLeft: '0.5rem',
+                          marginLeft: '0.25rem',
                           padding: '0.25rem 0.5rem',
-                          backgroundColor: overlaySensors.find((s) => s.sensorName === sensor.sensorName)
+                          backgroundColor: overlaySensors.some(s => s.sensorName === sensor.sensorName)
                               ? '#10b981'
                               : '#6b7280',
-                          color: '#fff',
+                          color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: 'pointer',
+                          cursor: 'pointer'
                         }}
                     >
-                      {overlaySensors.find((s) => s.sensorName === sensor.sensorName)
-                          ? 'Remove Overlay'
-                          : 'Add Overlay'}
+                      {overlaySensors.some(s => s.sensorName === sensor.sensorName) ? '★' : '☆'}
                     </button>
                   </li>
               ))}
             </ul>
           </div>
 
+          {/* Charts Area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ marginRight: '0.5rem' }}>Time Range (seconds):</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label>Time Range (seconds):</label>
               <input
                   type="number"
                   value={timeRangeSec}
-                  onChange={(e) => setTimeRangeSec(Number(e.target.value))}
-                  style={{ width: '100px' }}
+                  onChange={(e) => setTimeRangeSec(Math.max(1, Number(e.target.value)))}
+                  style={{ width: '80px' }}
               />
             </div>
 
@@ -351,25 +366,22 @@ const DynamicCharts = () => {
             )}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-              {sensorCharts.map((chart) => (
+              {sensorCharts.map(chart => (
                   <Card key={chart.id} style={{ width: '420px' }}>
-                    <CardHeader
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
+                    <CardHeader style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <CardTitle>{chart.sensorName}</CardTitle>
                       <button
                           onClick={() => removeChart(chart.id)}
                           style={{
-                            marginLeft: '0.5rem',
                             padding: '0.25rem 0.5rem',
-                            backgroundColor: '#ef4444',
-                            color: '#fff',
+                            background: '#ef4444',
+                            color: 'white',
                             border: 'none',
                             borderRadius: '4px',
-                            cursor: 'pointer',
+                            cursor: 'pointer'
                           }}
                       >
-                        Remove Chart
+                        Remove
                       </button>
                     </CardHeader>
                     <CardContent>
@@ -379,10 +391,9 @@ const DynamicCharts = () => {
                             dataKey="time"
                             tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
                         />
-                        <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
+                        <YAxis />
                         <Tooltip
                             labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                            formatter={(value) => [value, '']}
                         />
                         <Line
                             type="monotone"
@@ -400,6 +411,4 @@ const DynamicCharts = () => {
         </div>
       </div>
   );
-};
-
-export default DynamicCharts;
+}
