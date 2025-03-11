@@ -2,83 +2,76 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { fetchUniqueSensorsFromInflux, fetchSensorData, parseSensorCsv, parseDistinctCsv } from "./api/influx/uniqueSensors";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { fetchUniqueSensorsFromInflux, fetchSensorData, parseSensorCsv, parseDistinctCsv } from "../api/influx/uniqueSensors";
 
-// OverlayChart uses each overlay sensor's assigned color.
-const OverlayChart = ({ sensors, timeRangeSec }) => {
-    const [data, setData] = useState([]);
+export default function Page() {
+    // OverlayChart component for sensor overlay
+    const OverlayChart = ({ sensors, timeRangeSec }) => {
+        const [data, setData] = useState([]);
 
-    useEffect(() => {
-        async function fetchOverlayData() {
-            try {
-                const sensorDataArray = await Promise.all(
-                    sensors.map((sensor) => fetchSensorData(sensor.sensorName, timeRangeSec))
-                );
-                if (sensorDataArray.length === 0) return;
-                const mergedData = sensorDataArray[0].map((point, index) => {
-                    let mergedPoint = { time: point.time };
-                    sensors.forEach((sensor, idx) => {
-                        mergedPoint[sensor.sensorName] = sensorDataArray[idx][index]?.value || null;
+        useEffect(() => {
+            async function fetchOverlayData() {
+                try {
+                    const sensorDataArray = await Promise.all(
+                        sensors.map((sensor) => fetchSensorData(sensor.sensorName, timeRangeSec))
+                    );
+                    if (sensorDataArray.length === 0) return;
+                    const mergedData = sensorDataArray[0].map((point, index) => {
+                        let mergedPoint = { time: point.time };
+                        sensors.forEach((sensor, idx) => {
+                            mergedPoint[sensor.sensorName] = sensorDataArray[idx][index]?.value || null;
+                        });
+                        return mergedPoint;
                     });
-                    return mergedPoint;
-                });
-                setData(mergedData);
-            } catch (error) {
-                console.error("Error fetching overlay data:", error);
+                    setData(mergedData);
+                } catch (error) {
+                    console.error("Error fetching overlay data:", error);
+                }
             }
-        }
 
-        if (sensors.length > 0) {
-            fetchOverlayData();
-            const intervalId = setInterval(fetchOverlayData, 1000);
-            return () => clearInterval(intervalId);
-        }
-    }, [sensors, timeRangeSec]);
+            if (sensors.length > 0) {
+                fetchOverlayData();
+                const intervalId = setInterval(fetchOverlayData, 1000);
+                return () => clearInterval(intervalId);
+            }
+        }, [sensors, timeRangeSec]);
 
-    return (
-        <Card style={{ width: '450px', marginBottom: '1rem' }}>
-            <CardHeader>
-                <CardTitle>Sensor Overlay</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <LineChart width={400} height={300} data={data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="time"
-                        tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
-                    />
-                    <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip
-                        labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                        formatter={(value) => [value, '']}
-                    />
-                    <Legend />
-                    {sensors.map((sensor) => (
-                        <Line
-                            key={sensor.sensorName}
-                            type="monotone"
-                            dataKey={sensor.sensorName}
-                            stroke={sensor.color}
-                            dot={false}
-                            isAnimationActive={false}
-                        />
-                    ))}
-                </LineChart>
-            </CardContent>
-        </Card>
-    );
-};
+        return (
+            <Card style={{ width: '450px', marginBottom: '1rem' }}>
+                <CardHeader>
+                    <CardTitle>Sensor Overlay</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <LineChart width={400} height={300} data={data}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()} />
+                        <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
+                        <Tooltip labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()} formatter={(value) => [value, '']} />
+                        <Legend />
+                        {sensors.map((sensor) => (
+                            <Line
+                                key={sensor.sensorName}
+                                type="monotone"
+                                dataKey={sensor.sensorName}
+                                stroke={sensor.color}
+                                dot={false}
+                                isAnimationActive={false}
+                            />
+                        ))}
+                    </LineChart>
+                </CardContent>
+            </Card>
+        );
+    };
 
-const DynamicCharts = () => {
-    // Chart and sensor states
+    // Main page component logic
     const [sensorCharts, setSensorCharts] = useState([]);
     const [availableSensors, setAvailableSensors] = useState([]);
     const [overlaySensors, setOverlaySensors] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [fetchError, setFetchError] = useState(null);
     const [timeRangeSec, setTimeRangeSec] = useState(60);
-    // Preset string state for saving/loading configurations
     const [presetString, setPresetString] = useState('');
 
     const sensorChartsRef = useRef(sensorCharts);
@@ -99,7 +92,7 @@ const DynamicCharts = () => {
     ];
     const [colorIndex, setColorIndex] = useState(0);
 
-    // Fetch available sensors on mount (store only sensorName)
+    // Fetch available sensors on mount
     useEffect(() => {
         async function getSensors() {
             try {
@@ -158,7 +151,7 @@ const DynamicCharts = () => {
         });
     };
 
-    // Add a new individual chart (always with default color)
+    // Add a new individual chart
     const addChart = async (sensorConfig) => {
         try {
             const dataPoints = await fetchSensorData(sensorConfig.sensorName, timeRangeSec);
@@ -179,17 +172,17 @@ const DynamicCharts = () => {
         setSensorCharts((prev) => prev.filter((chart) => chart.id !== chartId));
     };
 
-    // Preset export: create an object with current settings and encode it as a base64 string.
+    // Preset export: encode current settings as a base64 string.
     const exportPreset = () => {
         const preset = {
             timeRangeSec,
             individualSensors: sensorCharts.map((chart) => chart.sensorName),
-            overlaySensors, // includes sensorName and assigned color
+            overlaySensors,
         };
         return btoa(JSON.stringify(preset));
     };
 
-    // Preset import: decode the preset string and apply the configuration.
+    // Preset import: decode and apply configuration.
     const importPreset = (presetStr) => {
         try {
             const decoded = atob(presetStr);
@@ -210,9 +203,7 @@ const DynamicCharts = () => {
 
     // Filter available sensors by search term.
     const filteredSensors = availableSensors
-        .filter((sensor) =>
-            sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        .filter((sensor) => sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase()))
         .slice(0, 200);
 
     return (
@@ -363,22 +354,10 @@ const DynamicCharts = () => {
                                 <CardContent>
                                     <LineChart width={400} height={200} data={chart.data}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis
-                                            dataKey="time"
-                                            tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
-                                        />
+                                        <XAxis dataKey="time" tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()} />
                                         <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
-                                        <Tooltip
-                                            labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()}
-                                            formatter={(value) => [value, '']}
-                                        />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="value"
-                                            stroke={chart.color}
-                                            dot={false}
-                                            isAnimationActive={false}
-                                        />
+                                        <Tooltip labelFormatter={(unixTime) => new Date(unixTime).toLocaleString()} formatter={(value) => [value, '']} />
+                                        <Line type="monotone" dataKey="value" stroke={chart.color} dot={false} isAnimationActive={false} />
                                     </LineChart>
                                 </CardContent>
                             </Card>
@@ -388,6 +367,4 @@ const DynamicCharts = () => {
             </div>
         </div>
     );
-};
-
-export default DynamicCharts;
+}

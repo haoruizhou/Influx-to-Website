@@ -1,6 +1,11 @@
 import React from 'react';
-import DynamicCharts from "./DynamicCharts"
+import Pages from "./DynamicCharts/page"
+import Index from "./index"
 
-export default function Home() {
-  return <DynamicCharts />;
+export default function Page() {
+    return (
+        <div>
+        <Index />
+        </div>
+    );
 }

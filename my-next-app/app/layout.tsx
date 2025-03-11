@@ -2,6 +2,8 @@
 
 import "./globals.css"; // Ensure your CSS file is imported
 import Link from "next/link";
+import React from "react";
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -23,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         <Link href="/fsae-simulator">Brakes/Pedals</Link>
                     </li>
                     <li>
-                        <Link href="/GLV">GLV</Link>
+                        <Link href="/DynamicCharts">GLV</Link>
                     </li>
                     <li>
                         <Link href="/fsae-simulator">Suspension</Link>
