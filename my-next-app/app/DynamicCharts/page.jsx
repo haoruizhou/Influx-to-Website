@@ -201,7 +201,7 @@ export default function Page() {
         }
     };
 
-    // Filter available sensors by search term.
+// Filter available sensors by search term.
     const filteredSensors = availableSensors
         .filter((sensor) => sensor.sensorName.toLowerCase().includes(searchTerm.toLowerCase()))
         .slice(0, 200);
@@ -244,7 +244,7 @@ export default function Page() {
                 {/* Sidebar */}
                 <div
                     style={{
-                        width: '250px',
+                        paddingLeft: '300px',
                         marginRight: '1rem',
                         borderRight: '1px solid #ccc',
                         paddingRight: '1rem',
@@ -252,19 +252,30 @@ export default function Page() {
                         overflowY: 'auto',
                     }}
                 >
-                    <h2>Available Sensors</h2>
-                    {fetchError && (
-                        <div style={{ color: 'red', marginBottom: '1rem' }}>
-                            Failed to fetch sensors: {fetchError}
-                        </div>
-                    )}
-                    <input
-                        type="text"
-                        placeholder="Search sensors..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', marginBottom: '0.5rem' }}
-                    />
+                    <div
+                        style={{
+                            position: 'sticky',
+                            top: '0px',
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            padding: '0.5rem',
+                            zIndex: 10,
+                        }}
+                    >
+                        <h2 style={{ color: '#fff', margin: 0 }}>Available Sensors</h2>
+                        {fetchError && (
+                            <div style={{ color: 'red', marginBottom: '1rem' }}>
+                                Failed to fetch sensors: {fetchError}
+                            </div>
+                        )}
+                        <input
+                            type="text"
+                            placeholder="Search sensors..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', marginTop: '0.5rem', marginBottom: '0.5rem' }}
+                        />
+                    </div>
+
                     <ul style={{ listStyle: 'none', padding: 0 }}>
                         {filteredSensors.map((sensor, index) => (
                             <li
@@ -275,7 +286,7 @@ export default function Page() {
                                     alignItems: 'center',
                                 }}
                             >
-                                <span>{sensor.sensorName}</span>
+                                <span style={{ marginRight: 'auto' }}>{sensor.sensorName}</span>
                                 <button
                                     onClick={() => addChart(sensor)}
                                     style={{

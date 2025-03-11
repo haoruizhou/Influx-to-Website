@@ -5,6 +5,7 @@
 /* Root Variables */
 :root {
   --background: #ffffff;
+  --background-inverted: #000000;  /* Inverted color for light mode */
   --foreground: #171717;
   --color-primary: #1f252c;
   --color-secondary: #FFD700;
@@ -17,6 +18,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: var(--color-dark);
+    --background-inverted: #ffffff;  /* Inverted color for dark mode */
     --foreground: var(--color-light);
   }
 }
@@ -133,7 +135,7 @@ p {
 
 /* Cards */
 .card {
-  background: white;
+  background: rgba(255, 255, 255, 0.1);  /* Use inverted background */
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
