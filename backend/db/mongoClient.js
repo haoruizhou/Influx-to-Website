@@ -1,26 +1,37 @@
-import { MongoClient } from "mongodb";
-import dotenv from "dotenv";
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 
-// Load .env variables
 dotenv.config();
 
-const uri = process.env.DATABASE_URI;
-
-if (!uri) {
-  throw new Error("DATABASE_URI is not defined. Check your .env file.");
-}
-
-const client = new MongoClient(uri);
+let client = null;
+let db = null;
 
 export const connectToMongo = async () => {
+  // Return existing connection if available
+  if (db) return db;
+  
+  const uri = process.env.DATABASE_URI || process.env.DATABASE_URL;
+  if (!uri) {
+    throw new Error("DATABASE_URI is not defined. Check your .env file.");
+  }
+  
   try {
-    await client.connect(); // Connect to MongoDB
-    console.log("Connecting to MongoDB with URI:", process.env.DATABASE_URI);
-    const db = client.db('WFR'); // Ensure the database name is correctly specified
-    console.log(`Using database: ${db.databaseName}`);
-    return db; // Return the database instance
+    console.log("Connecting to MongoDB...");
+    client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000
+    });
+    
+    await client.connect();
+    console.log("Successfully connected to MongoDB!");
+    
+    db = client.db();
+    return db;
   } catch (error) {
-    console.error("Error connecting to MongoDB:", error.message);
+    console.error("MongoDB connection error:", error);
     throw error;
   }
 };
+
+// Initialize connection when the module is loaded
+connectToMongo().catch(err => console.error("Initial MongoDB connection failed:", err));
