@@ -25,3 +25,5 @@ dist-ssr
 backend/.env
 my-react-app/.env
 
+.env
+config/secrets.js
