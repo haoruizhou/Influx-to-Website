@@ -27,8 +27,17 @@ mongoose
 
 
 const app = express();
-app.use(cors({ origin: "http://localhost:5173" })); // Replace with your frontend URL
+// In your backend index.js
+app.use(cors({
+  origin: "http://localhost:5173", // Your frontend URL
+  credentials: true
+}));
 app.use(express.json());
+
+// In your backend index.js
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
 
 // 2) Setup routes
 app.use("/api/auth", authRoutes);
@@ -60,6 +69,9 @@ app.post("/track/save", authenticateToken, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+
+
 
 app.get("/track/load/:name", authenticateToken, async (req, res) => {
   try {
