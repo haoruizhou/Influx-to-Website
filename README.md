@@ -289,3 +289,32 @@ Run the script:
 python readCAN2.py
 ```
 
+
+# Authentication System
+
+This project now includes a comprehensive authentication system using MongoDB and JWT (JSON Web Tokens).
+
+## Features
+- User authentication with JWT tokens
+- Protected routes for authorized access
+- MongoDB integration for user storage
+- Role-based access control (admin users)
+
+## Setup
+1. Make sure MongoDB is properly configured with your connection string in `.env` file:
+DATABASE_URI=mongodb+srv://your_username:your_password@your_cluster_url/?retryWrites=true&w=majority
+JWT_SECRET=your_jwt_secret
+Copy
+2. Create an admin user by running:
+cd backend
+node scripts/setup-admin.js
+Copy
+3. Default admin credentials:
+- Username: admin
+- Password: admin123
+
+## Usage
+- Login via the login page to receive a JWT token
+- Protected routes will automatically check for valid authentication
+- The token is stored in localStorage and will persist until logout
+- Admin users have additional privileges to manage other users
