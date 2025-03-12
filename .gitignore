@@ -3,3 +3,4 @@
 
 .env
 config/secrets.js
+my-react-app/.env

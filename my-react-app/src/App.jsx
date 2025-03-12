@@ -12,6 +12,8 @@ import WFRFullLogo from './assets/WFR_DAQ_Logo.png';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
+  // to bypsss the login page
+  // return children;
   const { isLoggedIn, loading } = useAuth();
 
   if (loading) {
@@ -80,8 +82,9 @@ function App() {
             </Link>
             <div className="navbar-links">
               <Link to="/" className="nav-link">Home</Link>
-              <Link to="/fsae-simulator" className="nav-link">FSAE Simulator</Link>
-              <Link to="/WFRDownloader" className="nav-link">WFR Downloader</Link>
+              <Link to="/fsae-simulator" className="nav-link">Track Map</Link>
+                <Link to="/GLV" className="nav-link">Live View</Link>
+              <Link to="/WFRDownloader" className="nav-link">Data Downloader</Link>
               <Link to="/login" className="nav-link nav-button">
                 Login
               </Link>

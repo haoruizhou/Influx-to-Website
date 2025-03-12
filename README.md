@@ -274,25 +274,48 @@ Copy the **admin token**, as you’ll need it for your Python script.
 
 
 
-**🚀 Step 7: Update Your Python Script (readCAN2.py)**
+**🚀 Step 7: Update Your Python Script (readCANxxx.py)**
 
 Modify your script to use the correct InfluxDB credentials:
 
 ```
 influx_url = "http://35.183.158.105:8086"
-token = "your_token_here"
+token is saved in a seperate txt
 ```
 
 Run the script:
 
 ```
-python readCAN2.py
+python readCAN3batchSender.py
 ```
+
+
+
+## Set Auto Start on Ubuntu for Docker
+
+sudo docker update --restart unless-stopped influxwfr
+
+sudo snap start docker
+
+sudo snap enable docker
+
+
+
+Check if it works:
+
+sudo reboot
+
+sudo docker ps
+
+
+
 
 
 # Authentication System
 
 This project now includes a comprehensive authentication system using MongoDB and JWT (JSON Web Tokens).
+
+
 
 ## Features
 - User authentication with JWT tokens
@@ -302,13 +325,18 @@ This project now includes a comprehensive authentication system using MongoDB an
 
 ## Setup
 1. Make sure MongoDB is properly configured with your connection string in `.env` file:
-DATABASE_URI=mongodb+srv://your_username:your_password@your_cluster_url/?retryWrites=true&w=majority
-JWT_SECRET=your_jwt_secret
-Copy
+  DATABASE_URI=mongodb+srv://your_username:your_password@your_cluster_url/?retryWrites=true&w=majority
+  JWT_SECRET=your_jwt_secret
+
 2. Create an admin user by running:
-cd backend
-node scripts/setup-admin.js
-Copy
+  ``` cmd
+  cd backend
+  node scripts/setup-admin.js
+  npm install
+  npm install -g nodemon
+  nodemon index.js
+  ```
+
 3. Default admin credentials:
 - Username: admin
 - Password: admin123
