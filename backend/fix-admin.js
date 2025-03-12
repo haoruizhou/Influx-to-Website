@@ -1,39 +1,45 @@
-// reset-admin-password.js
+// fix-admin.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import User from './db/models/user.js';
+import User from './db/models/user.js'; // Add this import
 
 dotenv.config();
 
-const resetAdminPassword = async () => {
+const fixAdmin = async () => {
   try {
-    const dbUri = process.env.DATABASE_URI || process.env.DATABASE_URL;
-    console.log('Connecting to MongoDB...');
-    await mongoose.connect(dbUri);
+    await mongoose.connect(process.env.DATABASE_URI);
     
-    // Find the admin user
+    // No need to do this since we imported the model:
+    // const User = mongoose.model('User');
+    
     const admin = await User.findOne({ username: 'admin' });
+    
     if (!admin) {
       console.log('Admin user not found!');
       return;
     }
     
-    // Force set a new password (bypassing the pre-save hook)
+    // Set a new plain password
     const newPassword = 'admin123';
+    console.log(`Setting password to: ${newPassword}`);
+    
+    // Hash it
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     
-    // Use updateOne directly to avoid triggering middleware
+    // Update directly in the database
     const result = await User.updateOne(
       { _id: admin._id },
       { $set: { password: hashedPassword } }
     );
     
     console.log('Password reset result:', result);
-    console.log('Admin password has been reset to "admin123"');
     
-    // Verify the update worked
+    // Verify
     const updatedAdmin = await User.findOne({ username: 'admin' });
+    console.log('Updated hash:', updatedAdmin.password);
+    
+    // Test password match
     const isMatch = await bcrypt.compare(newPassword, updatedAdmin.password);
     console.log(`Verification - password matches: ${isMatch}`);
     
@@ -43,4 +49,4 @@ const resetAdminPassword = async () => {
   }
 };
 
-resetAdminPassword();
+fixAdmin();
