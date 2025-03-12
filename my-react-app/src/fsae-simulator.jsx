@@ -404,7 +404,7 @@ const WFRSimulator = () => {
 
   return (
       // changed from 300 to 700 to show the buttons
-    <div className="simulator-content" style={{ marginTop: "700px" }}>
+    <div className="simulator-content" >
       <div className="simulator-container flex">
         {/* Side Column */}
         <div className="w-1/4 p-4 border-r border-gray-200">
