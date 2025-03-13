@@ -6,19 +6,13 @@ npm install @influxdata/influxdb-client
 
 
 
-# Feature Requests
+# Next Steps
 
 Feature Requests
 
 1. Allow custom x-axis, to plot sensor value against another value
 2. [completed] Overlay of graphs (Influxdb graph viewer supports natively) 
 3. Pull units from InfluxDB and display on the graph
-4. Odometer showing total distance ran (need to figure out which sensor to use)
-
-Hardware:
-
-1. DAQ shut on/off button on the car
-
 # Testing setup - with Python script and docker Influx - HZ
 
 
@@ -47,6 +41,10 @@ sudo docker run -d \
   -e DOCKER_INFLUXDB_INIT_BUCKET=ourCar \
   influxdb:2
 ```
+
+
+
+
 
 In the address bar at the top, type: `http://localhost:8086`
 
@@ -327,8 +325,8 @@ This project now includes a comprehensive authentication system using MongoDB an
 
 ## Setup
 1. Make sure MongoDB is properly configured with your connection string in `.env` file:
-    DATABASE_URI=mongodb+srv://your_username:your_password@your_cluster_url/?retryWrites=true&w=majority
-    JWT_SECRET=your_jwt_secret
+  DATABASE_URI=mongodb+srv://your_username:your_password@your_cluster_url/?retryWrites=true&w=majority
+  JWT_SECRET=your_jwt_secret
 
 2. Create an admin user by running:
   ``` cmd
