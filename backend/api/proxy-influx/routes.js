@@ -1,15 +1,14 @@
 // routes.js
-import {INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG} from "../../db/influxClient.js";
 
 export async function POST(request) {
     try {
         const body = await request.text();
         const influxResponse = await fetch(
-            `${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, // Use INFLUX_ORG here
+            `${import.meta.env.VITE_INFLUX_URL}/api/v2/query?org=${import.meta.env.VITE_INFLUX_ORG}`, // Use INFLUX_ORG here
             {
                 method: 'POST',
                 headers: {
-                    Authorization: `Token ${INFLUX_TOKEN}`,
+                    Authorization: `Token ${import.meta.env.VITE_INFLUX_TOKEN}`,
                     'Content-Type': 'application/vnd.flux',
                     Accept: 'application/csv'
                 },

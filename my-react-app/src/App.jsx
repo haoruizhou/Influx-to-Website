@@ -9,6 +9,8 @@ import WFRLogo from './assets/WFR_DAQ_Logo.png';
 import OldGLV from "./oldGLV";
 import "./App.css";
 import WFRFullLogo from './assets/WFR_DAQ_Logo.png';
+import ECVM from './ECVM';
+
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -83,7 +85,9 @@ function App() {
             <div className="navbar-links">
               <Link to="/" className="nav-link">Home</Link>
               <Link to="/fsae-simulator" className="nav-link">Track Map</Link>
-                <Link to="/GLV" className="nav-link">Live View</Link>
+              <Link to="/GLV" className="nav-link">Live View</Link>
+
+              <Link to="/ECVM" className="nav-link">ECVM</Link>
               <Link to="/WFRDownloader" className="nav-link">Data Downloader</Link>
               <Link to="/login" className="nav-link nav-button">
                 Login
@@ -108,6 +112,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GLV />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ECVM"
+              element={
+                <ProtectedRoute>
+                  <ECVM />
                 </ProtectedRoute>
               }
             />

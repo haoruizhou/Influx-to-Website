@@ -1,17 +1,15 @@
-import {INFLUX_BUCKET} from "../../db/influxClient.js";
-
-
 async function fetchUniqueSensorsFromInflux() {
     const fluxQuery = `
-    from(bucket: "${INFLUX_BUCKET}")
+    from(bucket: "${import.meta.env.VITE_INFLUX_BUCKET}")
       |> range(start: -1d)
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> distinct(column: "signalName")
   `;
     // **MODIFIED: Using proxy endpoint instead of direct InfluxDB URL and removing Authorization header**
-    const response = await fetch(`/api/proxy-influx`, {
+    const response = await fetch(`${import.meta.env.VITE_INFLUX_URL}/api/v2/query?org=${import.meta.env.VITE_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
+            Authorization: `Token ${import.meta.env.VITE_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
@@ -30,7 +28,7 @@ async function fetchUniqueSensorsFromInflux() {
 // 2) Fetch time series data for a sensor over the last "timeRangeSec" seconds
 async function fetchSensorData(signalName, timeRangeSec) {
     const fluxQuery = `
-    from(bucket: "${INFLUX_BUCKET}")
+    from(bucket: "${import.meta.env.VITE_INFLUX_BUCKET}")
       |> range(start: -${timeRangeSec}s)
       |> filter(fn: (r) => r["_measurement"] == "canBus")
       |> filter(fn: (r) => r["signalName"] == "${signalName}")
@@ -40,9 +38,10 @@ async function fetchSensorData(signalName, timeRangeSec) {
   `;
 
     // **MODIFIED: Using proxy endpoint instead of direct InfluxDB URL and removing Authorization header**
-    const response = await fetch(`/api/proxy-influx`, {
+    const response = await fetch(`${import.meta.env.VITE_INFLUX_URL}/api/v2/query?org=${import.meta.env.VITE_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
+            Authorization: `Token ${import.meta.env.VITE_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },

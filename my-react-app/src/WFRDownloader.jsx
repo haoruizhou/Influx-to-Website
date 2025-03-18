@@ -1,10 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-    INFLUX_URL,
-    INFLUX_TOKEN,
-    INFLUX_ORG,
-    INFLUX_BUCKET,
-} from '../../backend/db/influxClient.js';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 // ------------------------------
@@ -23,15 +17,15 @@ function toDatetimeLocal(date) {
 // Fetch a distinct list of sensor names from InfluxDB.
 async function fetchUniqueSensorsFromInflux() {
     const fluxQuery = `
-from(bucket: "${INFLUX_BUCKET}")
+from(bucket: "${import.meta.env.VITE_INFLUX_BUCKET}")
   |> range(start: -1d)
   |> filter(fn: (r) => r["_measurement"] == "canBus")
   |> distinct(column: "signalName")
     `;
-    const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
+    const response = await fetch(`${import.meta.env.VITE_INFLUX_URL}/api/v2/query?org=${import.meta.env.VITE_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${INFLUX_TOKEN}`,
+            Authorization: `Token ${import.meta.env.VITE_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
@@ -51,17 +45,17 @@ async function fetchSensorDataForRange(sensorName, startTime, endTime) {
     const endISO = toISO(endTime);
     // Time values are now passed without quotes.
     const fluxQuery = `
-from(bucket: "${INFLUX_BUCKET}")
+from(bucket: "${import.meta.env.VITE_INFLUX_BUCKET}")
   |> range(start: ${startISO}, stop: ${endISO})
   |> filter(fn: (r) => r["_measurement"] == "canBus")
   |> filter(fn: (r) => r["signalName"] == "${sensorName}")
   |> filter(fn: (r) => r["_field"] == "sensorReading")
   |> yield(name: "raw")
     `;
-    const response = await fetch(`${INFLUX_URL}/api/v2/query?org=${INFLUX_ORG}`, {
+    const response = await fetch(`${import.meta.env.VITE_INFLUX_URL}/api/v2/query?org=${import.meta.env.VITE_INFLUX_ORG}`, {
         method: 'POST',
         headers: {
-            Authorization: `Token ${INFLUX_TOKEN}`,
+            Authorization: `Token ${import.meta.env.VITE_INFLUX_TOKEN}`,
             'Content-Type': 'application/vnd.flux',
             Accept: 'application/csv'
         },
@@ -138,7 +132,7 @@ function generateFluxQuery(selectedSensor, startTime, endTime) {
     const startISO = toISO(startTime);
     const endISO = toISO(endTime);
     return `
-from(bucket: "${INFLUX_BUCKET}")
+from(bucket: "${import.meta.env.VITE_INFLUX_BUCKET}")
   |> range(start: ${startISO}, stop: ${endISO})
   |> filter(fn: (r) => r["_measurement"] == "canBus")
   |> filter(fn: (r) => r["signalName"] == "${selectedSensor}")
