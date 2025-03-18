@@ -1,8 +1,8 @@
 {
-    "projects": {
+
     "frontend": "my-react-app",
-        "api": "backend"
-},
+    "api": "backend",
+
     "builds": [
     {
         "src": "my-react-app/package.json",
